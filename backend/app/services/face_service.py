@@ -105,6 +105,9 @@ class FaceService:
         cos_sim = float(np.dot(reg, live) / (reg_norm * live_norm + 1e-10))
         cos_sim = max(-1.0, min(1.0, cos_sim))
         distance = float(1 - cos_sim)
+        # Clamp float32 rounding noise to exact zero; far below ARCFACE_THRESHOLD so matching is unaffected.
+        if distance < 1e-9:
+            distance = 0.0
         if distance < ARCFACE_THRESHOLD:
             # Uncalibrated similarity score (not a probability). Higher = more similar.
             similarity = max(0.0, min(100.0, 100.0 - (distance * 100.0 / ARCFACE_THRESHOLD * 0.5)))

@@ -27,7 +27,7 @@ def test_identical_embeddings_match():
     e = _unit()
     match, score, dist = FaceService.verify_faces(svc, e, list(e))
     assert match is True
-    assert dist == 0.0
+    assert math.isclose(dist, 0.0, abs_tol=1e-9)
     assert score > 90
 
 
