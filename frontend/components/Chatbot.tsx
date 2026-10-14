@@ -5,11 +5,7 @@ import { Bot, Send, User, X, MessageSquare, Minimize2, Maximize2 } from 'lucide-
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
-const SYSTEM_PROMPT = 'You are a helpful assistant for the FaceSnap student registration and verification system. You help users understand how to register, how the facial verification works, and troubleshoot issues. Keep your answers concise and friendly.';
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-const GROQ_MODELS: Record<string, string> = {
+const MODEL_MAP: Record<string, string> = {
   'llama-3.3-70b': 'llama-3.3-70b-versatile',
   'llama-3.1-70b': 'llama-3.1-70b-versatile',
   'llama-3.1-8b': 'llama-3.1-8b-instant',
@@ -19,7 +15,7 @@ const GROQ_MODELS: Record<string, string> = {
 };
 
 function mapModel(userModel: string): string {
-  for (const [key, value] of Object.entries(GROQ_MODELS)) {
+  for (const [key, value] of Object.entries(MODEL_MAP)) {
     if (userModel.includes(key)) return value;
   }
   return 'llama-3.3-70b-versatile';
@@ -56,45 +52,23 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+      // Server-side proxy keeps the provider key out of the browser bundle.
+      const chatMessages = updatedMessages.map(m => ({ role: m.role, content: m.content.slice(0, 2000) })).slice(-20);
+      const modelName = mapModel('');
 
-      if (!apiKey) {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Groq API key not configured. Get a free key at https://console.groq.com (no credit card needed), then set NEXT_PUBLIC_GROQ_API_KEY in your .env.local file.' }]);
-        return;
-      }
-
-      const chatMessages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...updatedMessages.map(m => ({ role: m.role, content: m.content }))
-      ];
-
-      const modelName = mapModel(process.env.NEXT_PUBLIC_AI_MODEL || '');
-
-      const response = await fetch(GROQ_API_URL, {
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: chatMessages,
-          temperature: 0.7,
-          max_tokens: 1024,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatMessages, model: modelName }),
       });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        const details = err.error?.message || '';
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('Invalid API key. Get a new one at https://console.groq.com');
-        }
-        throw new Error(details || `API error (${response.status})`);
+        throw new Error(err.error || `Chat error (${response.status})`);
       }
 
       const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not process that.';
+      const reply = data.reply || 'Sorry, I could not process that.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (error: any) {
       console.error('Chat error:', error);

@@ -80,6 +80,10 @@ service cloud.firestore {
       return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
     }
 
+    function isValidTimestamp(ts) {
+      return ts is timestamp || isValidDateString(ts);
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -119,16 +123,19 @@ service cloud.firestore {
 
     function isValidAttendance() {
       let data = request.resource.data;
-      return hasOnlyAllowedFields(['studentUid', 'name', 'rollNumber', 'department', 'year', 'semester', 'timestamp', 'method']) &&
-             hasRequiredFields(['studentUid', 'name', 'rollNumber', 'department', 'year', 'semester', 'timestamp', 'method']) &&
+      let allowed = ['studentUid', 'name', 'rollNumber', 'department', 'year', 'semester', 'timestamp', 'method', 'liveness_score', 'sessionId'];
+      return data.keys().hasAll(['studentUid', 'name', 'rollNumber', 'department', 'year', 'semester', 'timestamp', 'method']) &&
+             data.keys().hasOnly(allowed) &&
              data.studentUid is string && data.studentUid.size() > 0 && data.studentUid.size() < 100 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.rollNumber is string && data.rollNumber.size() > 0 && data.rollNumber.size() < 50 &&
              data.department is string && data.department.size() > 0 && data.department.size() < 100 &&
              data.year is string && data.year.size() > 0 && data.year.size() < 20 &&
              data.semester is string && data.semester.size() > 0 && data.semester.size() < 20 &&
-             isValidDateString(data.timestamp) &&
-             data.method is string && data.method.size() > 0 && data.method.size() < 50;
+             isValidTimestamp(data.timestamp) &&
+             data.method is string && data.method in ['individual_live', 'doorway_batch', 'cctv_stream', 'upload'] &&
+             (!('liveness_score' in data) || data.liveness_score is number || data.liveness_score == null) &&
+             (!('sessionId' in data) || (data.sessionId is string && data.sessionId.size() < 50));
     }
 
     // ===============================================================

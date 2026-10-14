@@ -8,6 +8,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { motion } from 'motion/react';
+import { getBackendUrl } from '@/lib/utils';
+import { authHeaders } from '@/lib/attendance';
 
 export default function RegisterPage() {
   const { user, loading, signIn } = useAuth();
@@ -56,11 +58,45 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     try {
+      // Client-side image guard (server re-validates): reject huge payloads early.
+      if (imageSrc.length > 12_000_000) {
+        toast.error('Captured image is too large. Please retake with lower resolution.');
+        setIsSubmitting(false);
+        return;
+      }
+
       const q = query(collection(db, 'students'), where('uid', '==', user.uid));
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
         toast.error("You have already registered a facial profile.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Require exactly one detectable face before enrollment.
+      try {
+        const headers = await authHeaders();
+        const qualityRes = await fetch(getBackendUrl('/api/detect_webcam'), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ image_base64: imageSrc }),
+        });
+        if (!qualityRes.ok) {
+          throw new Error(`Face check failed (${qualityRes.status})`);
+        }
+        const quality = await qualityRes.json();
+        if (quality.faces_detected !== 1) {
+          toast.error(
+            quality.faces_detected === 0
+              ? 'No face detected. Please retake in good lighting.'
+              : 'Multiple faces detected. Please capture only your face.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Could not validate face. Is the backend running?');
         setIsSubmitting(false);
         return;
       }

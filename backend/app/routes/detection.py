@@ -1,52 +1,88 @@
-import cv2
-import numpy as np
-from fastapi import APIRouter, HTTPException
-from app.services.face_service import face_service
-from app.models.schemas import SyncRequest, DetectWebcamRequest
+from fastapi import APIRouter, Depends, HTTPException
+from app.services.face_service import face_service, MAX_IMAGE_BYTES
+from app.services.vector_service import vector_service
+from app.models.schemas import SyncRequest, SyncResponse, DetectWebcamRequest
+from app.models.schemas import DetectWebcamResponse
+from app.config import ARCFACE_THRESHOLD
+from app.auth import get_current_user, require_role
 
 router = APIRouter()
 
 
-@router.post("/api/sync")
-async def sync_students(request: SyncRequest):
-    synced_count = face_service.sync_students(request.students)
-    return {"message": f"Successfully synced {synced_count} students.", "synced_count": synced_count}
+@router.post("/api/sync", response_model=SyncResponse)
+async def sync_students(request: SyncRequest, user=Depends(require_role("admin", "operator"))):
+    if not face_service.is_ready:
+        raise HTTPException(status_code=503, detail="Face recognition model not loaded.")
+    if len(request.students) > 500:
+        raise HTTPException(status_code=413, detail="Too many students in one sync (max 500).")
+    synced_count = 0
+    for student in request.students:
+        try:
+            image_bytes = face_service._decode_base64(student.image_base64)
+            if len(image_bytes) > MAX_IMAGE_BYTES:
+                continue
+            encoding = face_service.get_face_encoding(image_bytes)
+            if encoding is not None:
+                vector_service.upsert(
+                    uid=student.uid,
+                    embedding=encoding,
+                    payload={
+                        "uid": student.uid,
+                        "name": student.name,
+                        "roll_no": student.roll_no,
+                    },
+                )
+                synced_count += 1
+        except Exception as e:
+            print(f"Sync error for {student.uid}: {e}")
+    return SyncResponse(synced_count=synced_count, total_in_db=vector_service.count())
 
 
-@router.post("/api/detect_webcam")
-async def detect_webcam(request: DetectWebcamRequest):
+@router.post("/api/detect_webcam", response_model=DetectWebcamResponse)
+async def detect_webcam(request: DetectWebcamRequest, user=Depends(get_current_user)):
+    if not face_service.is_ready:
+        raise HTTPException(status_code=503, detail="Face recognition model not loaded.")
     try:
         image_bytes = face_service._decode_base64(request.image_base64)
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image data")
+        raise HTTPException(status_code=400, detail="Invalid base64 image data.")
+    if len(image_bytes) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 8MB).")
 
-    h_img, w_img = rgb_img.shape[:2]
-    faces = face_service.detect_faces(rgb_img)
+    import numpy as np
+    import cv2
 
-    if not faces:
-        return {"faces_detected": 0, "frame_width": w_img, "frame_height": h_img, "face_data": []}
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Could not decode image.")
+    h, w = img.shape[:2]
+    if max(h, w) > 4096:
+        raise HTTPException(status_code=413, detail="Image dimensions too large.")
+    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+    faces = face_service.app.get(rgb_img) if face_service.app else []
     face_data = []
-    for (x, y, w, h) in faces:
-        x1, y1 = max(0, x), max(0, y)
-        x2, y2 = min(w_img, x + w), min(h_img, y + h)
-        face_img = rgb_img[y1:y2, x1:x2]
-        encodings = face_service.get_embeddings_batch([face_img])
+    for face in faces:
+        bbox = face.bbox.astype(int).tolist()
+        embedding = face.embedding
+        norm = np.linalg.norm(embedding)
+        normalized = (embedding / norm).tolist() if norm > 0 else embedding.tolist()
+        matches = vector_service.search(normalized, limit=1, score_threshold=1.0 - ARCFACE_THRESHOLD)
+        match = matches[0] if matches else None
+        face_data.append({
+            "box": [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]],
+            "match": {
+                "uid": match["uid"],
+                "name": match["name"],
+                "roll_no": match["roll_no"],
+                "distance": match["distance"],
+            } if match else None,
+        })
 
-        match = None
-        if len(encodings) > 0:
-            best_student, best_distance = face_service.find_best_match(encodings[0])
-            if best_student is not None:
-                match = {
-                    "uid": best_student["uid"],
-                    "name": best_student["name"],
-                    "roll_no": best_student["roll_no"],
-                    "distance": best_distance
-                }
-
-        face_data.append({"box": [x, y, w, h], "match": match})
-
-    return {"faces_detected": len(faces), "frame_width": w_img, "frame_height": h_img, "face_data": face_data}
+    return DetectWebcamResponse(
+        faces_detected=len(faces),
+        frame_width=img.shape[1],
+        frame_height=img.shape[0],
+        face_data=face_data,
+    )

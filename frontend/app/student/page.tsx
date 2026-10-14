@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { ShieldCheck, User as UserIcon, Camera, RefreshCw, CheckCircle2, XCircle, Loader2, LogIn, Scan, Trash2 } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Camera, RefreshCw, CheckCircle2, XCircle, Loader2, LogIn, Scan, Trash2, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { db } from '@/lib/firebase';
@@ -11,18 +11,27 @@ import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
 import type { StudentData, VerifyResponse } from '@/lib/types';
 import Image from 'next/image';
 import { motion } from 'motion/react';
+import { getBackendUrl } from '@/lib/utils';
+import { authHeaders } from '@/lib/attendance';
+
+const LIVENESS_FRAMES = 30;
+const FRAME_INTERVAL_MS = 50;
 
 export default function StudentPage() {
   const { user, loading, signIn } = useAuth();
   const [phase, setPhase] = useState<1 | 2>(1);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isCapturingFrames, setIsCapturingFrames] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState(0);
   const [verificationResult, setVerificationResult] = useState<'success' | 'failed' | null>(null);
+  const [livenessScore, setLivenessScore] = useState<number | null>(null);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const webcamRef = useRef<Webcam>(null);
+  const framesRef = useRef<string[]>([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -66,32 +75,62 @@ export default function StudentPage() {
     }
   };
 
+  const captureFrames = useCallback((): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const frames: string[] = [];
+      let captured = 0;
+
+      const capture = () => {
+        if (!webcamRef.current) {
+          resolve(frames);
+          return;
+        }
+        const src = webcamRef.current.getScreenshot();
+        if (src) frames.push(src);
+        captured++;
+        setCaptureProgress(Math.min(100, Math.round((captured / LIVENESS_FRAMES) * 100)));
+
+        if (captured >= LIVENESS_FRAMES) {
+          resolve(frames);
+        } else {
+          setTimeout(capture, FRAME_INTERVAL_MS);
+        }
+      };
+
+      capture();
+    });
+  }, []);
+
   const captureAndVerify = useCallback(async () => {
     if (!webcamRef.current || !studentData) {
       toast.error("Camera not ready or student data not found.");
       return;
     }
 
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) {
-      toast.error("Failed to capture image.");
+    setIsCapturingFrames(true);
+    setCaptureProgress(0);
+    setVerificationResult(null);
+    setLivenessScore(null);
+
+    const frames = await captureFrames();
+    setIsCapturingFrames(false);
+    setIsVerifying(true);
+
+    if (frames.length < 5) {
+      toast.error("Failed to capture enough frames. Please try again.");
+      setIsVerifying(false);
       return;
     }
 
-    setIsVerifying(true);
-    setVerificationResult(null);
-
     try {
-      const base64LiveImage = imageSrc.split(',')[1];
-      const base64RegisteredImage = studentData.faceImageBase64.split(',')[1];
-
-      const response = await fetch('http://localhost:8000/api/verify', {
+      const headers = await authHeaders();
+      const response = await fetch(getBackendUrl('/api/verify_liveness'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          registered_image_base64: base64RegisteredImage,
-          live_image_base64: base64LiveImage
-        })
+          registered_image_base64: studentData.faceImageBase64,
+          frames_base64: frames,
+        }),
       });
 
       if (!response.ok) {
@@ -100,10 +139,12 @@ export default function StudentPage() {
       }
 
       const result: VerifyResponse = await response.json();
+      setLivenessScore(result.liveness?.score ?? null);
 
       if (result.match) {
         setVerificationResult('success');
-        toast.success(`Identity Verified! (${result.confidence.toFixed(1)}% confidence)`);
+        const livenessNote = result.liveness?.live ? ' (liveness confirmed)' : '';
+        toast.success(`Identity Verified!${livenessNote} (${result.confidence.toFixed(1)}% confidence)`);
 
         try {
           await addDoc(collection(db, 'attendance'), {
@@ -114,7 +155,8 @@ export default function StudentPage() {
             year: studentData.year,
             semester: studentData.semester,
             timestamp: new Date().toISOString(),
-            method: 'individual_live'
+            method: 'individual_live',
+            liveness_score: result.liveness?.score ?? null,
           });
         } catch (fsError) {
           console.error("Firestore error:", fsError);
@@ -122,7 +164,7 @@ export default function StudentPage() {
         }
       } else {
         setVerificationResult('failed');
-        toast.error(`Verification Failed. ${result.reason}`);
+        toast.error(result.reason || 'Verification Failed.');
       }
     } catch (error) {
       console.error("Verification error:", error);
@@ -131,7 +173,7 @@ export default function StudentPage() {
     } finally {
       setIsVerifying(false);
     }
-  }, [studentData, user]);
+  }, [studentData, user, captureFrames]);
 
   if (loading) {
     return (
@@ -208,6 +250,8 @@ export default function StudentPage() {
     );
   }
 
+  const isBusy = isCapturingFrames || isVerifying;
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -223,19 +267,21 @@ export default function StudentPage() {
             Identity Verification
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Confirm your identity securely using AI-powered facial recognition.
+            Confirm your identity securely using AI-powered facial recognition with anti-spoofing.
           </p>
         </motion.div>
 
         <div className="flex p-1.5 bg-slate-200/50 backdrop-blur-sm rounded-full mb-10 max-w-md mx-auto shadow-inner">
           <button
             onClick={() => setPhase(1)}
+            disabled={isBusy}
             className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 ${phase === 1 ? 'bg-white text-indigo-700 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
           >
             Personal Info
           </button>
           <button
             onClick={() => setPhase(2)}
+            disabled={isBusy}
             className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 ${phase === 2 ? 'bg-white text-indigo-700 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
           >
             Live Scan
@@ -293,7 +339,8 @@ export default function StudentPage() {
                   <div className="mt-10 pt-8 border-t border-slate-100 flex justify-end">
                     <button
                       onClick={() => setPhase(2)}
-                      className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full font-bold hover:from-indigo-700 hover:to-blue-700 transition-all shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5 flex items-center gap-2"
+                      disabled={isBusy}
+                      className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full font-bold hover:from-indigo-700 hover:to-blue-700 transition-all shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-50"
                     >
                       Proceed to Scan <Scan className="w-4 h-4" />
                     </button>
@@ -313,14 +360,28 @@ export default function StudentPage() {
                     className="w-full h-full object-cover"
                   />
 
-                  {isVerifying && (
+                  {isCapturingFrames && (
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10">
                       <Loader2 className="w-12 h-12 text-white animate-spin mb-4" />
-                      <p className="text-white font-bold text-lg tracking-wide">Analyzing Facial Features...</p>
+                      <p className="text-white font-bold text-lg tracking-wide mb-2">Analyzing Liveness...</p>
+                      <div className="w-64 bg-slate-700/50 rounded-full h-3 overflow-hidden border border-slate-600/50">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-200"
+                          style={{ width: `${captureProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-slate-300 text-sm mt-2">{Math.round(captureProgress)}%</p>
                     </div>
                   )}
 
-                  {verificationResult && !isVerifying && (
+                  {isVerifying && !isCapturingFrames && (
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+                      <Loader2 className="w-12 h-12 text-white animate-spin mb-4" />
+                      <p className="text-white font-bold text-lg tracking-wide">Running AI Models...</p>
+                    </div>
+                  )}
+
+                  {verificationResult && !isBusy && (
                     <div
                       className={`absolute inset-0 flex flex-col items-center justify-center z-20 backdrop-blur-md ${
                         verificationResult === 'success' ? 'bg-emerald-500/90' : 'bg-rose-500/90'
@@ -331,12 +392,24 @@ export default function StudentPage() {
                           <CheckCircle2 className="w-20 h-20 text-white mb-4" />
                           <h3 className="text-3xl font-bold text-white mb-2">Verified</h3>
                           <p className="text-emerald-100 font-bold">Identity confirmed successfully.</p>
+                          {livenessScore !== null && (
+                            <div className="mt-3 flex items-center gap-2 text-emerald-100 text-sm">
+                              <Heart className="w-4 h-4" />
+                              Liveness score: {(livenessScore * 100).toFixed(0)}%
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
                           <XCircle className="w-20 h-20 text-white mb-4" />
                           <h3 className="text-3xl font-bold text-white mb-2">Failed</h3>
                           <p className="text-rose-100 font-bold">Face does not match registered profile.</p>
+                          {livenessScore !== null && (
+                            <div className="mt-3 flex items-center gap-2 text-rose-100 text-sm">
+                              <Heart className="w-4 h-4" />
+                              Liveness score: {(livenessScore * 100).toFixed(0)}%
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -347,28 +420,28 @@ export default function StudentPage() {
                   <button
                     onClick={() => setPhase(1)}
                     className="px-8 py-4 bg-slate-100 text-slate-700 rounded-full font-bold hover:bg-slate-200 transition-all shadow-sm hover:-translate-y-0.5"
-                    disabled={isVerifying}
+                    disabled={isBusy}
                   >
                     Back to Profile
                   </button>
                   <button
                     onClick={captureAndVerify}
-                    disabled={isVerifying}
+                    disabled={isBusy}
                     className={`px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 shadow-md transition-all hover:-translate-y-0.5 ${
-                      isVerifying
+                      isBusy
                         ? 'bg-indigo-400 text-white cursor-not-allowed'
                         : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-indigo-500/20 hover:shadow-indigo-500/30'
                     }`}
                   >
-                    {isVerifying ? (
+                    {isBusy ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Verifying...
+                        {isCapturingFrames ? 'Capturing frames...' : 'Verifying...'}
                       </>
                     ) : (
                       <>
-                        <Scan className="w-5 h-5" />
-                        Verify Identity
+                        <Heart className="w-5 h-5" />
+                        Verify with Liveness
                       </>
                     )}
                   </button>

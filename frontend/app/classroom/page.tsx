@@ -6,9 +6,11 @@ import { Camera, Users, Upload, CheckCircle2, AlertCircle, RefreshCw, Loader2, P
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
-import type { StudentData, DetectWebcamResponse, WebcamUIDetection, SyncStudentData, AttendanceLogPayload } from '@/lib/types';
+import type { StudentData, DetectWebcamResponse, WebcamUIDetection, SyncStudentData } from '@/lib/types';
+import { getBackendUrl } from '@/lib/utils';
+import { authHeaders, buildAttendanceRecord } from '@/lib/attendance';
 import { motion } from 'motion/react';
 
 export default function ClassroomPage() {
@@ -26,6 +28,8 @@ export default function ClassroomPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const loggedStudentsRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef(false);
+  const prevBoxesRef = useRef<Map<number, { x: number; y: number; w: number; h: number }>>(new Map());
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,11 +47,15 @@ export default function ClassroomPage() {
           })).filter(s => s.image_base64);
 
           try {
-            await fetch('http://localhost:8000/api/sync', {
+            const headers = await authHeaders();
+            const syncRes = await fetch(getBackendUrl('/api/sync'), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({ students: syncData })
             });
+            if (!syncRes.ok) {
+              throw new Error(`Sync failed (${syncRes.status})`);
+            }
             setModelsLoaded(true);
           } catch {
             console.error("Backend sync failed");
@@ -77,13 +85,19 @@ export default function ClassroomPage() {
 
     try {
       loggedStudentsRef.current.add(student.uid);
-      await addDoc(collection(db, 'attendance'), {
-        studentUid: student.uid,
-        studentName: student.name,
-        rollNo: student.rollNo || student.rollNumber || 'N/A',
-        timestamp: serverTimestamp(),
-        method: 'doorway_batch'
-      });
+      const full = registeredStudents.find((s) => s.uid === student.uid);
+      const payload = await buildAttendanceRecord(
+        {
+          uid: student.uid,
+          name: student.name,
+          rollNumber: student.rollNo || student.rollNumber || full?.rollNumber || 'N/A',
+          department: full?.department || 'N/A',
+          year: full?.year || 'N/A',
+          semester: full?.semester || 'N/A',
+        },
+        'doorway_batch'
+      );
+      await addDoc(collection(db, 'attendance'), payload);
       toast.success(`Attendance logged for ${student.name}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'attendance');
@@ -98,17 +112,26 @@ export default function ClassroomPage() {
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      const parent = canvas.parentElement;
+      if (parent) {
+        parent.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+      }
+    }
 
     detectionIntervalRef.current = setInterval(async () => {
       if (!isLiveStreamActive) return;
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
 
       const imageSrc = webcamRef.current?.getScreenshot();
-      if (!imageSrc) return;
+      if (!imageSrc) { inFlightRef.current = false; return; }
 
       try {
-        const response = await fetch('http://localhost:8000/api/detect_webcam', {
+        const headers = await authHeaders();
+        const response = await fetch(getBackendUrl('/api/detect_webcam'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ image_base64: imageSrc })
         });
 
@@ -121,11 +144,22 @@ export default function ClassroomPage() {
         }
 
         const currentDetections: WebcamUIDetection[] = [];
+        const newBoxes = new Map<number, { x: number; y: number; w: number; h: number }>();
+        const alpha = 0.4;
 
         if (data.faces_detected > 0) {
-          for (const face of data.face_data) {
-            const [x, y, w, h] = face.box;
+          for (let i = 0; i < data.face_data.length; i++) {
+            const face = data.face_data[i];
+            const [rawX, rawY, rawW, rawH] = face.box;
             const student = face.match;
+            const prev = prevBoxesRef.current.get(i);
+
+            const x = prev ? Math.round(prev.x + alpha * (rawX - prev.x)) : rawX;
+            const y = prev ? Math.round(prev.y + alpha * (rawY - prev.y)) : rawY;
+            const w = prev ? Math.round(prev.w + alpha * (rawW - prev.w)) : rawW;
+            const h = prev ? Math.round(prev.h + alpha * (rawH - prev.h)) : rawH;
+
+            newBoxes.set(i, { x, y, w, h });
 
             currentDetections.push({
               box: { x, y, width: w, height: h },
@@ -138,25 +172,36 @@ export default function ClassroomPage() {
             }
 
             if (ctx) {
+              ctx.shadowColor = student ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+              ctx.shadowBlur = 12;
               ctx.strokeStyle = student ? '#10b981' : '#ef4444';
               ctx.lineWidth = 3;
               ctx.strokeRect(x, y, w, h);
+              ctx.shadowBlur = 0;
+
+              const label = student ? student.name : 'Unknown';
+              ctx.font = 'bold 14px system-ui, sans-serif';
+              const textWidth = ctx.measureText(label).width;
+              const labelH = 28;
+              const labelY = y - labelH > 0 ? y - labelH : y + h;
 
               ctx.fillStyle = student ? '#10b981' : '#ef4444';
-              const text = student ? student.name : 'Unknown';
-              const textWidth = ctx.measureText(text).width;
-              ctx.fillRect(x, y - 25, textWidth + 10, 25);
+              ctx.beginPath();
+              ctx.roundRect(x, labelY, textWidth + 16, labelH, 6);
+              ctx.fill();
 
               ctx.fillStyle = '#ffffff';
-              ctx.font = '16px Arial';
-              ctx.fillText(text, x + 5, y - 7);
+              ctx.fillText(label, x + 8, labelY + 19);
             }
           }
         }
 
+        prevBoxesRef.current = newBoxes;
         setDetectedFaces(currentDetections);
       } catch {
         console.error("Detection error");
+      } finally {
+        inFlightRef.current = false;
       }
     }, 1000);
   }, [modelsLoaded, isLiveStreamActive]);
@@ -194,11 +239,36 @@ export default function ClassroomPage() {
     setIsProcessing(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("Group photo processed successfully. Attendance marked for recognized students.");
-    } catch {
-      console.error("Processing error");
-      toast.error("Failed to process group photo.");
+      // Real recognition: send the group photo to the backend and log each matched student once.
+      const headers = await authHeaders();
+      const response = await fetch(getBackendUrl('/api/detect_webcam'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ image_base64: uploadedImage }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || `Recognition failed (${response.status})`);
+      }
+      const data: DetectWebcamResponse = await response.json();
+      const matches = (data.face_data || []).map((f) => f.match).filter((m) => !!m);
+      const unique = new Map(matches.map((m) => [m!.uid, m!]));
+      let logged = 0;
+      for (const m of unique.values()) {
+        const before = loggedStudentsRef.current.size;
+        await logAttendance(m);
+        if (loggedStudentsRef.current.size > before) logged += 1;
+      }
+      if (data.faces_detected === 0) {
+        toast.info('No faces detected in the uploaded photo.');
+      } else if (logged === 0) {
+        toast.warning(`${data.faces_detected} face(s) detected, no recognized students.`);
+      } else {
+        toast.success(`Group photo processed: ${logged} attendance record(s) from ${data.faces_detected} face(s).`);
+      }
+    } catch (e) {
+      console.error("Processing error", e);
+      toast.error(e instanceof Error ? e.message : "Failed to process group photo.");
     } finally {
       setIsProcessing(false);
     }
@@ -298,12 +368,12 @@ export default function ClassroomPage() {
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     videoConstraints={{ facingMode: "user" }}
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full"
                     onPlay={handleVideoOnPlay}
                   />
                   <canvas
                     ref={canvasRef}
-                    className="absolute top-0 left-0 w-full h-full pointer-events-none z-20"
+                    className="absolute inset-0 w-full h-full pointer-events-none z-20"
                   />
 
                   {!isLiveStreamActive && modelsLoaded && (

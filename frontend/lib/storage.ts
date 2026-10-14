@@ -1,6 +1,6 @@
 'use client';
 
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { storage } from './firebase';
 
 export async function uploadFaceImage(
@@ -12,7 +12,20 @@ export async function uploadFaceImage(
   return getDownloadURL(storageRef);
 }
 
+export async function deleteAllFaceImages(uid: string): Promise<void> {
+  // listAll + delete each object: deleting the prefix alone is not recursive.
+  const prefix = ref(storage, `faces/${uid}`);
+  const listing = await listAll(prefix);
+  await Promise.all([
+    ...listing.items.map((item) => deleteObject(item)),
+    ...listing.prefixes.map(async (sub) => {
+      const subListing = await listAll(sub);
+      await Promise.all(subListing.items.map((item) => deleteObject(item)));
+    }),
+  ]);
+}
+
+/** @deprecated Use deleteAllFaceImages instead (prefix delete is not recursive). */
 export async function deleteFaceImage(uid: string): Promise<void> {
-  const storageRef = ref(storage, `faces/${uid}`);
-  await deleteObject(storageRef);
+  return deleteAllFaceImages(uid);
 }

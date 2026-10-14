@@ -8,6 +8,12 @@ __pycache__/
 .next/
 dist/
 build/
+*.tsbuildinfo
+
+# Model / vector caches (large, machine-local)
+backend/app/.insightface/
+*.onnx
+*.pt
 
 # Environment
 .env

@@ -57,6 +57,13 @@ export interface VerifyResponse {
   confidence: number;
   reason: string;
   distance: number;
+  liveness?: {
+    live: boolean;
+    score: number;
+    rppg_score: number;
+    blink_score: number;
+    motion_score: number;
+  };
 }
 
 export interface CCTVDetectResponse {
@@ -70,6 +77,7 @@ export interface CCTVFaceData {
   box: [number, number, number, number];
   has_encoding: boolean;
   bbox?: [number, number, number, number];
+  match?: FaceMatch | null;
 }
 
 export interface CCTVProcessedFace {

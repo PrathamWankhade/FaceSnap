@@ -6,13 +6,15 @@ import { motion } from 'motion/react';
 import { Camera, Settings, RefreshCw, AlertCircle, ShieldAlert, Users, Video, CheckCircle2, Square, Play, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
 import type { StudentData, CCTVDetectResponse, CCTVProcessedFace } from '@/lib/types';
+import { getBackendUrl } from '@/lib/utils';
+import { authHeaders } from '@/lib/attendance';
 
 export default function CCTVPage() {
   const { user, loading } = useAuth();
-  const [streamUrl, setStreamUrl] = useState('http://localhost:8000/api/pi/stream');
+  const [streamUrl, setStreamUrl] = useState(getBackendUrl('/api/pi/stream'));
   const [customUrl, setCustomUrl] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -21,6 +23,8 @@ export default function CCTVPage() {
 
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const loggedStudentsRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,16 +48,23 @@ export default function CCTVPage() {
   const logAttendance = async (student: StudentData) => {
     if (!student.uid) return;
     if (loggedStudentsRef.current.has(student.uid)) return;
-
+    // CCTV has no verified identity from this endpoint beyond backend match.
+    // Only call this with a backend-matched student (see detection handler).
     try {
       loggedStudentsRef.current.add(student.uid);
-      await addDoc(collection(db, 'attendance'), {
-        studentUid: student.uid,
-        studentName: student.name,
-        rollNo: student.rollNumber || 'N/A',
-        timestamp: serverTimestamp(),
-        method: 'cctv_stream'
-      });
+      const { buildAttendanceRecord } = await import('@/lib/attendance');
+      const payload = await buildAttendanceRecord(
+        {
+          uid: student.uid,
+          name: student.name,
+          rollNumber: student.rollNumber || 'N/A',
+          department: student.department || 'N/A',
+          year: student.year || 'N/A',
+          semester: student.semester || 'N/A',
+        },
+        'cctv_stream'
+      );
+      await addDoc(collection(db, 'attendance'), payload);
       toast.success(`Attendance logged for ${student.name}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'attendance');
@@ -94,7 +105,7 @@ export default function CCTVPage() {
   };
 
   const handleResetUrl = () => {
-    setStreamUrl('http://localhost:8000/api/pi/stream');
+    setStreamUrl(getBackendUrl('/api/pi/stream'));
     setCustomUrl('');
     toast.info('Reset to default PiCamera stream');
   };
@@ -113,24 +124,35 @@ export default function CCTVPage() {
       toast.success('Started AI detection pipeline.');
 
       detectionIntervalRef.current = setInterval(async () => {
+        if (inFlightRef.current) return;
+        inFlightRef.current = true;
         try {
-          const response = await fetch('http://localhost:8000/api/pi/detect');
-          if (!response.ok) throw new Error('Backend failed');
+          const headers = await authHeaders();
+          const response = await fetch(getBackendUrl('/api/pi/detect'), { headers });
+          if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            setCameraError(`Detection unavailable (${response.status}). No attendance was recorded. ${detail}`.slice(0, 300));
+            setDetectedFaces([]);
+            return;
+          }
+          setCameraError(null);
           const data: CCTVDetectResponse = await response.json();
 
           if (data.faces_detected > 0) {
-            const processedFaces: CCTVProcessedFace[] = data.face_data.map((face) => {
-              const mockStudent = face.has_encoding && registeredStudents.length > 0
-                ? registeredStudents[Math.floor(Math.random() * registeredStudents.length)]
+            const processedFaces: CCTVProcessedFace[] = (data.face_data || []).map((face) => {
+              // Only a backend-provided match counts as an identity. Unknown faces are shown but never logged.
+              const matchedUid: string | null = (face as unknown as { match?: { uid?: string } }).match?.uid ?? null;
+              const recognized = matchedUid
+                ? registeredStudents.find((s) => s.uid === matchedUid) ?? null
                 : null;
 
-              if (face.has_encoding && mockStudent) {
-                logAttendance(mockStudent);
+              if (recognized) {
+                logAttendance(recognized);
               }
 
               return {
                 ...face,
-                student: mockStudent,
+                student: recognized,
                 frame_width: data.frame_width || 640,
                 frame_height: data.frame_height || 480
               };
@@ -140,17 +162,11 @@ export default function CCTVPage() {
             setDetectedFaces([]);
           }
         } catch {
-          if (registeredStudents.length > 0) {
-            const mockStudent = registeredStudents[Math.floor(Math.random() * registeredStudents.length)];
-            setDetectedFaces([{
-              box: [150, 100, 200, 200],
-              frame_width: 640,
-              frame_height: 480,
-              student: mockStudent,
-              has_encoding: true
-            }]);
-            logAttendance(mockStudent);
-          }
+          // Camera/API failure: visible error, zero attendance records.
+          setCameraError('Camera or recognition service unreachable. No attendance was recorded.');
+          setDetectedFaces([]);
+        } finally {
+          inFlightRef.current = false;
         }
       }, 2000);
     }
@@ -225,6 +241,13 @@ export default function CCTVPage() {
               <p>The stream must be an MJPEG feed or a direct image URL that updates.</p>
             </div>
           </motion.div>
+        )}
+
+        {cameraError && (
+          <div className="mb-4 flex items-start gap-2 text-sm text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-100">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{cameraError}</p>
+          </div>
         )}
 
         <motion.div

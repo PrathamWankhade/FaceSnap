@@ -1,150 +1,115 @@
 import os
 import numpy as np
 import cv2
-import tensorflow as tf
-from keras_facenet import FaceNet
-from ultralytics import YOLO
-from app.config import RECOGNITION_THRESHOLD, YOLO_CONFIDENCE, FACENET_INPUT_SIZE
+from app.config import ARCFACE_THRESHOLD, DETECTION_CONFIDENCE, EMBEDDING_DIM
+
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_DIM = 4096
 
 
 class FaceService:
     def __init__(self):
-        self.embedder = None
-        self.yolo_model = None
-        self.registered_students = {}
-        self._load_models()
+        self.app = None
+        self._load_model()
 
-    def _load_models(self):
-        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "yolov8n.pt")
+    def _load_model(self):
         try:
-            self.embedder = FaceNet()
+            import insightface
+            from insightface.app import FaceAnalysis
+            self.app = FaceAnalysis(name='buffalo_s', root=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.insightface'))
+            self.app.prepare(ctx_id=0 if self._has_gpu() else -1, det_thresh=DETECTION_CONFIDENCE)
+            print(f"InsightFace loaded (device: {'GPU' if self._has_gpu() else 'CPU'})")
         except Exception as e:
-            print(f"FaceNet load error: {e}")
-            self.embedder = None
+            print(f"InsightFace load error: {e}")
+            self.app = None
 
+    @staticmethod
+    def _has_gpu():
         try:
-            self.yolo_model = YOLO(model_path, verbose=False)
-            try:
-                self.yolo_model.to('cuda')
-            except Exception:
-                pass
-        except Exception as e:
-            print(f"YOLO load error: {e}")
-            self.yolo_model = None
+            import onnxruntime
+            return onnxruntime.get_available_providers() and 'CUDAExecutionProvider' in onnxruntime.get_available_providers()
+        except Exception:
+            return False
 
     @property
     def is_ready(self):
-        return self.embedder is not None and self.yolo_model is not None
-
-    def get_device(self):
-        return 'cuda' if tf.config.list_physical_devices('GPU') else 'cpu'
-
-    def detect_faces(self, frame):
-        if self.yolo_model is None:
-            return []
-        results = self.yolo_model.predict(
-            frame, conf=YOLO_CONFIDENCE, classes=[0],
-            device=0 if tf.config.list_physical_devices('GPU') else 'cpu',
-            verbose=False
-        )
-        boxes = []
-        for r in results:
-            for box in r.boxes.xyxy:
-                x1, y1, x2, y2 = map(int, box)
-                boxes.append((x1, y1, x2 - x1, y2 - y1))
-        return boxes
-
-    def preprocess_face(self, face_img):
-        if face_img is None or face_img.size == 0:
-            return None
-        try:
-            face_img = cv2.resize(face_img, FACENET_INPUT_SIZE, interpolation=cv2.INTER_CUBIC)
-            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-            face_img = cv2.filter2D(face_img, -1, kernel)
-            mean, std = np.mean(face_img), np.std(face_img)
-            face_img = (face_img - mean) / (std if std > 0 else 1.0)
-            return face_img
-        except Exception:
-            return None
-
-    def get_embeddings_batch(self, face_imgs):
-        if not face_imgs or self.embedder is None:
-            return np.array([])
-        valid_faces = []
-        for img in face_imgs:
-            processed = self.preprocess_face(img)
-            if processed is not None:
-                valid_faces.append(processed)
-        if not valid_faces:
-            return np.array([])
-        batch = np.stack(valid_faces)
-        return self.embedder.model.predict(batch, verbose=0)
+        return self.app is not None
 
     def get_face_encoding(self, image_bytes):
+        if self.app is None:
+            return None
+        if not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
+            return None
         try:
             nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return None
+            h, w = img.shape[:2]
+            if h <= 0 or w <= 0 or max(h, w) > MAX_IMAGE_DIM:
+                return None
             rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            faces = self.detect_faces(rgb_img)
+            faces = self.app.get(rgb_img)
             if not faces:
                 return None
-            faces.sort(key=lambda f: f[2] * f[3], reverse=True)
-            x, y, w, h = faces[0]
-            h_img, w_img = rgb_img.shape[:2]
-            x1, y1 = max(0, x), max(0, y)
-            x2, y2 = min(w_img, x + w), min(h_img, y + h)
-            face_img = rgb_img[y1:y2, x1:x2]
-            encodings = self.get_embeddings_batch([face_img])
-            if len(encodings) == 0:
+            if len(faces) > 1:
+                # Ambiguous enrollment/verification image: use largest but flag via size order.
+                # Callers requiring strict single-face should check face count separately.
+                pass
+            faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
+            embedding = np.asarray(faces[0].embedding, dtype=np.float32)
+            if embedding.size != EMBEDDING_DIM:
                 return None
-            return encodings[0].tolist()
+            norm = float(np.linalg.norm(embedding))
+            if norm <= 0:
+                return None
+            return (embedding / norm).tolist()
         except Exception as e:
             print(f"Encoding error: {e}")
             return None
 
-    def find_best_match(self, live_encoding):
-        best_distance = float('inf')
-        best_student = None
-        live_np = np.array(live_encoding)
-        for uid, student_data in self.registered_students.items():
-            stored_enc = student_data.get("encoding")
-            if stored_enc is None:
+    def get_multiple_encodings(self, frames_bytes):
+        if self.app is None:
+            return []
+        results = []
+        for fb in frames_bytes:
+            try:
+                nparr = np.frombuffer(fb, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is None:
+                    continue
+                rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                faces = self.app.get(rgb_img)
+                if not faces:
+                    continue
+                faces.sort(key=lambda f: f.bbox[2] * f.bbox[3], reverse=True)
+                embedding = faces[0].embedding
+                norm = np.linalg.norm(embedding)
+                results.append((embedding / norm).tolist() if norm > 0 else embedding.tolist())
+            except Exception:
                 continue
-            dist = np.linalg.norm(stored_enc if isinstance(stored_enc, np.ndarray) else np.array(stored_enc) - live_np)
-            if dist < best_distance:
-                best_distance = dist
-                best_student = student_data
-        if best_distance < RECOGNITION_THRESHOLD and best_student is not None:
-            return best_student, float(best_distance)
-        return None, float(best_distance)
+        return results
 
     def verify_faces(self, registered_encoding, live_encoding):
-        reg_np = np.array(registered_encoding)
-        live_np = np.array(live_encoding)
-        distance = float(np.linalg.norm(reg_np - live_np))
-        if distance < RECOGNITION_THRESHOLD:
-            confidence = max(0, min(100, 100 - (distance * 100 / RECOGNITION_THRESHOLD * 0.2)))
-            return True, confidence, distance
-        return False, max(0, 100 - (distance * 100)), distance
-
-    def sync_students(self, students):
-        self.registered_students.clear()
-        synced_count = 0
-        for student in students:
-            try:
-                image_bytes = self._decode_base64(student.image_base64)
-                encoding = self.get_face_encoding(image_bytes)
-                if encoding is not None:
-                    self.registered_students[student.uid] = {
-                        "uid": student.uid,
-                        "name": student.name,
-                        "roll_no": student.roll_no,
-                        "encoding": np.array(encoding)
-                    }
-                    synced_count += 1
-            except Exception as e:
-                print(f"Sync error for {student.uid}: {e}")
-        return synced_count
+        try:
+            reg = np.asarray(registered_encoding, dtype=np.float32).reshape(-1)
+            live = np.asarray(live_encoding, dtype=np.float32).reshape(-1)
+        except Exception:
+            return False, 0.0, 1.0
+        if reg.shape != live.shape or reg.size != EMBEDDING_DIM:
+            return False, 0.0, 1.0
+        reg_norm = float(np.linalg.norm(reg))
+        live_norm = float(np.linalg.norm(live))
+        if reg_norm <= 0 or live_norm <= 0:
+            return False, 0.0, 1.0
+        cos_sim = float(np.dot(reg, live) / (reg_norm * live_norm + 1e-10))
+        cos_sim = max(-1.0, min(1.0, cos_sim))
+        distance = float(1 - cos_sim)
+        if distance < ARCFACE_THRESHOLD:
+            # Uncalibrated similarity score (not a probability). Higher = more similar.
+            similarity = max(0.0, min(100.0, 100.0 - (distance * 100.0 / ARCFACE_THRESHOLD * 0.5)))
+            return True, similarity, distance
+        return False, max(0.0, 100.0 - (distance * 100.0)), distance
 
     @staticmethod
     def _decode_base64(base64_string):
