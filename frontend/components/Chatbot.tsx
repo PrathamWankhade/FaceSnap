@@ -101,7 +101,7 @@ export default function Chatbot() {
             animate={{ opacity: 1, y: 0, scale: 1, height: isMinimized ? 'auto' : '550px' }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ type: 'spring', bounce: 0.4 }}
-            className="fixed bottom-6 right-6 w-[350px] sm:w-[400px] bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-100 z-50 flex flex-col overflow-hidden"
+            className="fixed bottom-6 right-6 w-[350px] sm:w-[400px] bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-100 dark:border-slate-800 z-50 flex flex-col overflow-hidden"
           >
             <div className="bg-slate-900 text-white p-5 flex items-center justify-between relative overflow-hidden">
               <div className="absolute top-[-50%] right-[-20%] w-[60%] h-[150%] rounded-full bg-indigo-500/30 blur-[30px] pointer-events-none" />
@@ -129,13 +129,13 @@ export default function Chatbot() {
 
             {!isMinimized && (
               <>
-                <div className="flex-1 p-5 overflow-y-auto bg-slate-50/50 flex flex-col gap-5">
+                <div className="flex-1 p-5 overflow-y-auto bg-slate-50/50 dark:bg-slate-900/60 flex flex-col gap-5">
                   {messages.map((msg, idx) => (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', bounce: 0.4 }} key={idx} className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-white border border-slate-200 text-indigo-600'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300'}`}>
                         {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                       </div>
-                      <div className={`p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-sm'}`}>
+                      <div className={`p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-tr-sm' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-sm'}`}>
                         <div className="markdown-body prose prose-sm max-w-none">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
@@ -144,10 +144,10 @@ export default function Chatbot() {
                   ))}
                   {isLoading && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 max-w-[85%] self-start">
-                      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0 shadow-sm">
                         <Bot className="w-4 h-4" />
                       </div>
-                      <div className="p-4 rounded-2xl bg-white border border-slate-100 rounded-tl-sm flex items-center gap-1.5 shadow-sm">
+                      <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-sm flex items-center gap-1.5 shadow-sm">
                         <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -157,9 +157,9 @@ export default function Chatbot() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-4 bg-white border-t border-slate-100">
+                <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
                   <form onSubmit={handleSend} className="flex items-center gap-3">
-                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your message..." className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 placeholder:text-slate-400" />
+                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your message..." className="flex-1 px-5 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" disabled={!input.trim() || isLoading} className="p-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-600/20">
                       <Send className="w-5 h-5" />
                     </motion.button>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -29,8 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className="font-sans antialiased text-gray-900 bg-gray-50 min-h-screen flex flex-col" suppressHydrationWarning>
+      <body className="font-sans antialiased text-slate-900 bg-slate-50 min-h-screen flex flex-col dark:bg-slate-950 dark:text-slate-100" suppressHydrationWarning>
         <ErrorBoundary>
+          <ThemeProvider>
           <AuthProvider>
             <Navigation />
             <main className="flex-1 flex flex-col">
@@ -38,8 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
             <Footer />
             <ChatbotWrapper />
-            <Toaster position="top-center" richColors theme="light" />
+            <Toaster position="top-center" richColors theme="system" />
           </AuthProvider>
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

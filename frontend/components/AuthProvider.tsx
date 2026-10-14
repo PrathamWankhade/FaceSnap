@@ -12,11 +12,15 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+export type UserRole = 'admin' | 'student';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   profileLoading: boolean;
   profileError: string | null;
+  role: UserRole | null;
+  roleLoading: boolean;
   signingIn: boolean;
   signIn: () => Promise<void>;
   logOut: () => Promise<void>;
@@ -28,6 +32,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   profileLoading: false,
   profileError: null,
+  role: null,
+  roleLoading: false,
   signingIn: false,
   signIn: async () => {},
   logOut: async () => {},
@@ -36,7 +42,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-async function ensureUserProfile(currentUser: User): Promise<void> {
+async function ensureUserProfile(currentUser: User): Promise<UserRole> {
   if (!db) throw new Error('Database not initialized.');
   const userRef = doc(db, 'users', currentUser.uid);
   const userSnap = await getDoc(userRef);
@@ -48,7 +54,10 @@ async function ensureUserProfile(currentUser: User): Promise<void> {
       role: 'student',
       createdAt: new Date().toISOString(),
     });
+    return 'student';
   }
+  const data = userSnap.data() as { role?: unknown };
+  return data.role === 'admin' ? 'admin' : 'student';
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -56,20 +65,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(() => auth != null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const router = useRouter();
 
   const loadProfile = async (currentUser: User) => {
     setProfileLoading(true);
+    setRoleLoading(true);
     setProfileError(null);
     try {
-      await ensureUserProfile(currentUser);
+      const resolvedRole = await ensureUserProfile(currentUser);
+      setRole(resolvedRole);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to create user profile.';
       setProfileError(msg);
       console.error('Profile creation failed:', e);
     } finally {
       setProfileLoading(false);
+      setRoleLoading(false);
     }
   };
 
@@ -86,6 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfileError(null);
         setProfileLoading(false);
+        setRole(null);
+        setRoleLoading(false);
       }
     });
 
@@ -126,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, profileLoading, profileError, signingIn, signIn, logOut, retryProfile }}>
+    <AuthContext.Provider value={{ user, loading, profileLoading, profileError, role, roleLoading, signingIn, signIn, logOut, retryProfile }}>
       {children}
     </AuthContext.Provider>
   );

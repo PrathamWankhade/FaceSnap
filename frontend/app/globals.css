@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -38,6 +45,14 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-slate-400);
   }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: var(--color-slate-700);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-slate-600);
+  }
 }
 
 @layer utilities {
@@ -62,6 +77,11 @@
   background: linear-gradient(90deg, var(--color-slate-100) 25%, var(--color-slate-200) 50%, var(--color-slate-100) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton-pulse {
+  background: linear-gradient(90deg, var(--color-slate-800) 25%, var(--color-slate-700) 50%, var(--color-slate-800) 75%);
+  background-size: 200% 100%;
 }
 
 @keyframes fade-in {

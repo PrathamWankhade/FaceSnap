@@ -15,18 +15,18 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full text-center bg-white p-10 rounded-[2rem] shadow-xl border border-slate-100">
-        <div className="w-20 h-20 bg-rose-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
+        <div className="w-20 h-20 bg-rose-100 dark:bg-rose-950/50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
           <AlertTriangle className="w-10 h-10 text-rose-600" />
         </div>
-        <h1 className="text-3xl font-display font-bold text-slate-900 mb-4 tracking-tight">
+        <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-4 tracking-tight">
           Something went wrong
         </h1>
-        <p className="text-slate-600 mb-8 leading-relaxed">
+        <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
           An unexpected error occurred. Please try again.
           {error.digest && (
-            <span className="block mt-2 text-xs font-mono text-slate-400">
+            <span className="block mt-2 text-xs font-mono text-slate-400 dark:text-slate-500">
               Error ID: {error.digest}
             </span>
           )}

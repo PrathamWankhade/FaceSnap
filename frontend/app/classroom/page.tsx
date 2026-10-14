@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, Users, Upload, CheckCircle2, AlertCircle, RefreshCw, Loader2, Play, Square, Scan, LogIn } from 'lucide-react';
+import { Camera, Users, Upload, CheckCircle2, AlertCircle, Loader2, Play, Square, Scan, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { db } from '@/lib/firebase';
@@ -14,7 +14,7 @@ import { authHeaders, buildAttendanceRecord } from '@/lib/attendance';
 import { motion } from 'motion/react';
 
 export default function ClassroomPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, role } = useAuth();
   const [mode, setMode] = useState<'live' | 'upload'>('live');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLiveStreamActive, setIsLiveStreamActive] = useState(false);
@@ -22,6 +22,9 @@ export default function ClassroomPage() {
   const [registeredStudents, setRegisteredStudents] = useState<StudentData[]>([]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncedCount, setSyncedCount] = useState<number | null>(null);
+  const [uploadResults, setUploadResults] = useState<{ logged: string[]; unrecognized: number; faces: number } | null>(null);
 
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,10 +59,13 @@ export default function ClassroomPage() {
             if (!syncRes.ok) {
               throw new Error(`Sync failed (${syncRes.status})`);
             }
+            const syncJson = await syncRes.json().catch(() => null);
+            setSyncedCount(typeof syncJson?.synced_count === 'number' ? syncJson.synced_count : syncData.length);
+            setSyncError(null);
             setModelsLoaded(true);
           } catch {
             console.error("Backend sync failed");
-            toast.error("Failed to sync facial data with backend.");
+            setSyncError('Recognition engine unreachable — live matching is unavailable. Check that the backend is running, then reload.');
           }
         } else {
           setModelsLoaded(true);
@@ -172,20 +178,20 @@ export default function ClassroomPage() {
             }
 
             if (ctx) {
-              ctx.shadowColor = student ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+              ctx.shadowColor = student ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.5)';
               ctx.shadowBlur = 12;
-              ctx.strokeStyle = student ? '#10b981' : '#ef4444';
+              ctx.strokeStyle = student ? '#10b981' : '#f59e0b';
               ctx.lineWidth = 3;
               ctx.strokeRect(x, y, w, h);
               ctx.shadowBlur = 0;
 
-              const label = student ? student.name : 'Unknown';
+              const label = student ? student.name : 'Unknown · review';
               ctx.font = 'bold 14px system-ui, sans-serif';
               const textWidth = ctx.measureText(label).width;
               const labelH = 28;
               const labelY = y - labelH > 0 ? y - labelH : y + h;
 
-              ctx.fillStyle = student ? '#10b981' : '#ef4444';
+              ctx.fillStyle = student ? '#10b981' : '#f59e0b';
               ctx.beginPath();
               ctx.roundRect(x, labelY, textWidth + 16, labelH, 6);
               ctx.fill();
@@ -229,6 +235,7 @@ export default function ClassroomPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
+        setUploadResults(null);
       };
       reader.readAsDataURL(file);
     }
@@ -237,6 +244,7 @@ export default function ClassroomPage() {
   const processUploadedImage = async () => {
     if (!uploadedImage) return;
     setIsProcessing(true);
+    setUploadResults(null);
 
     try {
       // Real recognition: send the group photo to the backend and log each matched student once.
@@ -253,12 +261,17 @@ export default function ClassroomPage() {
       const data: DetectWebcamResponse = await response.json();
       const matches = (data.face_data || []).map((f) => f.match).filter((m) => !!m);
       const unique = new Map(matches.map((m) => [m!.uid, m!]));
+      const loggedNames: string[] = [];
       let logged = 0;
       for (const m of unique.values()) {
         const before = loggedStudentsRef.current.size;
         await logAttendance(m);
-        if (loggedStudentsRef.current.size > before) logged += 1;
+        if (loggedStudentsRef.current.size > before) {
+          logged += 1;
+          loggedNames.push(m.name);
+        }
       }
+      setUploadResults({ logged: loggedNames, unrecognized: data.faces_detected - unique.size, faces: data.faces_detected });
       if (data.faces_detected === 0) {
         toast.info('No faces detected in the uploaded photo.');
       } else if (logged === 0) {
@@ -276,10 +289,10 @@ export default function ClassroomPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-800">
           <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-          <p className="text-slate-500 font-semibold">Loading...</p>
+          <p className="text-slate-500 dark:text-slate-400 font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -287,42 +300,88 @@ export default function ClassroomPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 max-w-md w-full text-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Access Denied</h2>
-          <p className="text-slate-600">Please sign in to access the Classroom Attendance portal.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">Access Denied</h2>
+          <p className="text-slate-600 dark:text-slate-300">Please sign in to access the Classroom Attendance portal.</p>
         </div>
       </div>
     );
   }
 
+  if (role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 max-w-md w-full text-center">
+          <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Staff Only</h2>
+          <p className="text-slate-600 dark:text-slate-300">Batch attendance is available to staff accounts. Students can use Verify and Records.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const recognizedFaces = detectedFaces.filter(f => f.isRecognized);
+  const unknownFaces = detectedFaces.filter(f => !f.isRecognized);
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 page-fade">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-8"
         >
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-slate-900 tracking-tight mb-4">
+          <h1 className="text-4xl md:text-5xl font-display font-bold text-slate-900 dark:text-white tracking-tight mb-4">
             Classroom Attendance
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Monitor doorways in real-time or process group photos for automated batch attendance.
+          <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+            Monitor doorways in real-time or process group photos for batch attendance.
           </p>
         </motion.div>
 
-        <div className="flex p-1.5 bg-slate-200/50 backdrop-blur-sm rounded-full mb-10 max-w-md mx-auto shadow-inner">
+        {/* Recognition status toolbar */}
+        <div className="grid sm:grid-cols-3 gap-4 mb-8 max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${modelsLoaded ? 'bg-emerald-500' : syncError ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'}`} />
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recognition engine</p>
+              <p className="font-bold text-slate-900 dark:text-white text-sm">{modelsLoaded ? 'Ready' : syncError ? 'Unavailable' : 'Syncing…'}</p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${syncedCount ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Synced embeddings</p>
+              <p className="font-bold text-slate-900 dark:text-white text-sm">{syncedCount === null ? '—' : syncedCount}</p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${mode === 'live' && isLiveStreamActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`} />
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Live detection</p>
+              <p className="font-bold text-slate-900 dark:text-white text-sm">{mode === 'live' && isLiveStreamActive ? 'Running' : 'Stopped'}</p>
+            </div>
+          </div>
+        </div>
+        {syncError && (
+          <div className="max-w-4xl mx-auto mb-8 flex items-start gap-2 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 p-3 rounded-xl border border-rose-100 dark:border-rose-900">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{syncError}</p>
+          </div>
+        )}
+
+        <div className="flex p-1.5 bg-slate-200/50 dark:bg-slate-800/60 backdrop-blur-sm rounded-full mb-10 max-w-md mx-auto shadow-inner">
           <button
             onClick={() => setMode('live')}
-            className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${mode === 'live' ? 'bg-white text-indigo-700 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+            className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${mode === 'live' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
           >
             <Camera className="w-4 h-4" /> Doorway (Live)
           </button>
           <button
             onClick={() => setMode('upload')}
-            className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${mode === 'upload' ? 'bg-white text-indigo-700 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+            className={`flex-1 py-3 px-6 text-sm font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 ${mode === 'upload' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
           >
             <Upload className="w-4 h-4" /> Group Photo
           </button>
@@ -332,23 +391,23 @@ export default function ClassroomPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2 bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
+            className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden"
           >
             {mode === 'live' ? (
               <div className="p-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900">Live Camera Feed</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Live Camera Feed</h2>
                   <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                      <span className={`w-3 h-3 rounded-full ${isLiveStreamActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                    <span className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+                      <span className={`w-3 h-3 rounded-full ${isLiveStreamActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
                       {isLiveStreamActive ? 'Active' : 'Inactive'}
                     </span>
                     <button
                       onClick={toggleLiveStream}
                       className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 transition-colors ${
                         isLiveStreamActive
-                          ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-950'
+                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-950'
                       }`}
                     >
                       {isLiveStreamActive ? <><Square className="w-4 h-4" /> Stop</> : <><Play className="w-4 h-4" /> Start</>}
@@ -356,7 +415,7 @@ export default function ClassroomPage() {
                   </div>
                 </div>
 
-                <div className="relative bg-slate-900 aspect-video rounded-3xl overflow-hidden shadow-inner border-4 border-slate-100">
+                <div className="relative bg-slate-900 aspect-video rounded-3xl overflow-hidden shadow-inner border-4 border-slate-100 dark:border-slate-800">
                   {!modelsLoaded && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-slate-900/80 backdrop-blur-sm">
                       <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
@@ -385,18 +444,18 @@ export default function ClassroomPage() {
               </div>
             ) : (
               <div className="p-8">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">Upload Group Photo</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Upload Group Photo</h2>
 
                 {!uploadedImage ? (
                   <div
-                    className="border-4 border-dashed border-slate-200 rounded-3xl p-12 text-center hover:border-indigo-400 hover:bg-indigo-50 transition-all cursor-pointer group"
+                    className="border-4 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl p-12 text-center hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all cursor-pointer group"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-                      <Upload className="w-10 h-10 text-indigo-600" />
+                    <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-950/70 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                      <Upload className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Click to upload image</h3>
-                    <p className="text-slate-500">Supports JPG, PNG (Max 10MB)</p>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Click to upload image</h3>
+                    <p className="text-slate-500 dark:text-slate-400">Supports JPG, PNG (Max 10MB)</p>
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -407,7 +466,7 @@ export default function ClassroomPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="relative aspect-video rounded-3xl overflow-hidden shadow-inner border-4 border-slate-100 bg-slate-900">
+                    <div className="relative aspect-video rounded-3xl overflow-hidden shadow-inner border-4 border-slate-100 dark:border-slate-800 bg-slate-900">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={uploadedImage} alt="Uploaded Group" className="w-full h-full object-contain" />
                       {isProcessing && (
@@ -419,20 +478,45 @@ export default function ClassroomPage() {
                     </div>
                     <div className="flex justify-center gap-4">
                       <button
-                        onClick={() => setUploadedImage(null)}
+                        onClick={() => { setUploadedImage(null); setUploadResults(null); }}
                         disabled={isProcessing}
-                        className="px-6 py-3 bg-slate-100 text-slate-700 rounded-full font-bold hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                       >
                         Choose Another
                       </button>
                       <button
                         onClick={processUploadedImage}
                         disabled={isProcessing}
-                        className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full font-bold hover:from-indigo-700 hover:to-blue-700 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+                        className="px-8 py-3 bg-indigo-600 text-white rounded-full font-bold hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
                       >
                         {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing</> : <><Scan className="w-5 h-5" /> Process Image</>}
                       </button>
                     </div>
+                    {uploadResults && (
+                      <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl p-5">
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                          Results · {uploadResults.faces} face(s) detected
+                        </p>
+                        {uploadResults.logged.length > 0 ? (
+                          <ul className="space-y-2">
+                            {uploadResults.logged.map((name) => (
+                              <li key={name} className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                <span className="font-bold text-emerald-900 dark:text-emerald-200">{name}</span>
+                                <span className="ml-auto text-xs font-bold text-emerald-700 dark:text-emerald-300">recorded</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-slate-400 dark:text-slate-500 text-sm italic">No recognized students — nothing was recorded.</p>
+                        )}
+                        {uploadResults.unrecognized > 0 && (
+                          <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+                            {uploadResults.unrecognized} face(s) need review — no verified match, nothing recorded.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -442,47 +526,71 @@ export default function ClassroomPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8 flex flex-col"
+            className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 p-8 flex flex-col"
           >
-            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-600" /> Detection Status
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> Detection Status
             </h3>
 
             <div className="flex-1">
               {mode === 'live' ? (
                 <div className="space-y-6">
-                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Faces Detected</p>
-                    <p className="text-4xl font-display font-bold text-slate-900">{detectedFaces.length}</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-center">
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Detected</p>
+                      <p className="text-3xl font-display font-bold text-slate-900 dark:text-white">{detectedFaces.length}</p>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900 text-center">
+                      <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Verified</p>
+                      <p className="text-3xl font-display font-bold text-emerald-700 dark:text-emerald-300">{recognizedFaces.length}</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950/40 p-4 rounded-2xl border border-amber-100 dark:border-amber-900 text-center">
+                      <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">Review</p>
+                      <p className="text-3xl font-display font-bold text-amber-700 dark:text-amber-300">{unknownFaces.length}</p>
+                    </div>
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Recent Recognitions</p>
-                    {detectedFaces.filter(f => f.isRecognized).length > 0 ? (
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Verified · attendance recorded</p>
+                    {recognizedFaces.length > 0 ? (
                       <ul className="space-y-3">
-                        {detectedFaces.filter(f => f.isRecognized).map((face, idx) => {
+                        {recognizedFaces.map((face, idx) => {
                           const matchedStudent = face.student;
                           return (
-                            <li key={idx} className="flex items-center gap-3 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                              <span className="font-bold text-emerald-900">{matchedStudent?.name || 'Unknown'}</span>
+                            <li key={idx} className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                              <span className="font-bold text-emerald-900 dark:text-emerald-200">{matchedStudent?.name || 'Unknown'}</span>
                             </li>
                           );
                         })}
                       </ul>
                     ) : (
-                      <p className="text-slate-400 text-sm italic">No recognized faces currently in view.</p>
+                      <p className="text-slate-400 dark:text-slate-500 text-sm italic">No verified faces currently in view.</p>
                     )}
                   </div>
+
+                  {unknownFaces.length > 0 && (
+                    <div>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Needs review · nothing recorded</p>
+                      <ul className="space-y-3">
+                        {unknownFaces.map((_, idx) => (
+                          <li key={idx} className="flex items-center gap-3 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-100 dark:border-amber-900">
+                            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            <span className="font-bold text-amber-900 dark:text-amber-200">Unknown face {detectedFaces.length > 1 ? `#${idx + 1}` : ''}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-slate-600 text-sm leading-relaxed">
-                    Upload a clear group photo. The system will use YOLO and FaceNet models to detect all faces and mark attendance for recognized students automatically.
+                  <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                    Upload a clear group photo. Face detection and ArcFace matching identify enrolled students; only verified matches are recorded, once each.
                   </p>
-                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 font-medium">For best results, ensure the photo is well-lit and faces are clearly visible.</p>
+                  <div className="bg-amber-50 dark:bg-amber-950/40 p-4 rounded-xl border border-amber-100 dark:border-amber-900 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">For best results, ensure the photo is well-lit and faces are clearly visible. Unrecognized faces are listed for review, never auto-recorded.</p>
                   </div>
                 </div>
               )}

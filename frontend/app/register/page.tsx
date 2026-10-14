@@ -125,10 +125,10 @@ export default function RegisterPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-800">
           <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-          <p className="text-slate-500 font-semibold">Loading...</p>
+          <p className="text-slate-500 dark:text-slate-400 font-semibold">Loading...</p>
         </div>
       </div>
     );
@@ -136,17 +136,17 @@ export default function RegisterPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 max-w-md w-full text-center"
+          className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 dark:border-slate-800 max-w-md w-full text-center"
         >
-          <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+          <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-950/50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
             <UserPlus className="w-10 h-10 text-indigo-600" />
           </div>
-          <h2 className="text-3xl font-display font-bold text-slate-900 mb-4 tracking-tight">Authentication Required</h2>
-          <p className="text-slate-600 mb-8 leading-relaxed">
+          <h2 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-4 tracking-tight">Authentication Required</h2>
+          <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
             Please sign in with your institutional account to register your facial profile.
           </p>
           <button
@@ -162,24 +162,24 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-slate-900 tracking-tight mb-4">
+          <h1 className="text-4xl md:text-5xl font-display font-bold text-slate-900 dark:text-white tracking-tight mb-4">
             Identity Registration
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+          <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
             Enroll your facial data securely into the institutional database using advanced CNN architectures.
           </p>
         </motion.div>
 
         <div className="mb-12 max-w-md mx-auto">
           <div className="flex justify-between items-center relative">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-200 rounded-full z-0"></div>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full z-0"></div>
             <div
               className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-indigo-600 rounded-full z-0 transition-all duration-500 shadow-[0_0_10px_rgba(79,70,229,0.5)]"
               style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
@@ -189,14 +189,14 @@ export default function RegisterPage() {
               <div
                 key={i}
                 className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-500 shadow-md ${
-                  step >= i ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-white text-slate-400 border-2 border-slate-200'
+                  step >= i ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-2 border-slate-200 dark:border-slate-700'
                 }`}
               >
                 {step > i ? <CheckCircle2 className="w-6 h-6" /> : i}
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="flex justify-between mt-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
             <span>Details</span>
             <span>Capture</span>
             <span>Complete</span>
@@ -206,45 +206,53 @@ export default function RegisterPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
+          className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 dark:border-slate-800 overflow-hidden"
         >
           {step === 1 && (
             <div className="p-8 md:p-12">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6">Student Information</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Student Information</h2>
+              <div className="bg-amber-50 dark:bg-amber-950/50 p-5 rounded-2xl mb-8 border border-amber-100 dark:border-amber-900/50 shadow-inner">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+                    Biometric notice: your photo is used to create a face embedding for attendance matching. It is stored under your account and you can delete it anytime via profile delete.
+                  </p>
+                </div>
+              </div>
               <form onSubmit={(e) => { e.preventDefault(); setStep(2); }} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Full Name</label>
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Full Name</label>
                     <input
                       required
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 focus:bg-white shadow-sm"
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 dark:text-slate-100 shadow-sm"
                       placeholder="John Doe"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Roll Number</label>
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Roll Number</label>
                     <input
                       required
                       name="rollNumber"
                       value={formData.rollNumber}
                       onChange={handleInputChange}
-                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 focus:bg-white shadow-sm"
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 dark:text-slate-100 shadow-sm"
                       placeholder="e.g. CS2024-001"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 ml-1">Department</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Department</label>
                   <select
                     required
                     name="department"
                     value={formData.department}
                     onChange={handleInputChange}
-                    className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 focus:bg-white shadow-sm appearance-none"
+                    className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 dark:text-slate-100 shadow-sm appearance-none"
                   >
                     <option value="">Select Department</option>
                     <option value="Computer Science">Computer Science</option>
@@ -256,13 +264,13 @@ export default function RegisterPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Year</label>
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Year</label>
                     <select
                       required
                       name="year"
                       value={formData.year}
                       onChange={handleInputChange}
-                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 focus:bg-white shadow-sm appearance-none"
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 dark:text-slate-100 shadow-sm appearance-none"
                     >
                       <option value="">Select Year</option>
                       <option value="1">1st Year</option>
@@ -272,13 +280,13 @@ export default function RegisterPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Semester</label>
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Semester</label>
                     <select
                       required
                       name="semester"
                       value={formData.semester}
                       onChange={handleInputChange}
-                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 focus:bg-white shadow-sm appearance-none"
+                      className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 dark:text-slate-100 shadow-sm appearance-none"
                     >
                       <option value="">Select Semester</option>
                       <option value="1">1st Semester</option>
@@ -308,22 +316,23 @@ export default function RegisterPage() {
           {step === 2 && (
             <div className="p-8 md:p-12">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Facial Capture</h2>
-                <button onClick={() => setStep(1)} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-4 py-2 rounded-full">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Facial Capture</h2>
+                <button onClick={() => setStep(1)} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300 px-4 py-2 rounded-full">
                   Edit Details
                 </button>
               </div>
 
-              <div className="bg-amber-50 p-5 rounded-2xl mb-8 border border-amber-100 shadow-inner">
+              <div className="bg-amber-50 dark:bg-amber-950/50 p-5 rounded-2xl mb-8 border border-amber-100 dark:border-amber-900/50 shadow-inner">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-amber-800 leading-relaxed">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
                     Ensure you are in a well-lit area. Look directly at the camera and keep your face within the frame.
+                    <span className="block mt-1">Your browser will ask for camera access — please allow it to continue.</span>
                   </p>
                 </div>
               </div>
 
-              <div className="relative bg-slate-900 aspect-video mb-8 rounded-3xl overflow-hidden shadow-2xl max-w-2xl mx-auto border-4 border-slate-100">
+              <div className="relative bg-slate-900 aspect-video mb-8 rounded-3xl overflow-hidden shadow-2xl max-w-2xl mx-auto border-4 border-slate-100 dark:border-slate-800">
                 {!imageSrc ? (
                   <>
                     <Webcam
@@ -356,7 +365,7 @@ export default function RegisterPage() {
                   <>
                     <button
                       onClick={retake}
-                      className="px-8 py-4 bg-slate-100 text-slate-700 rounded-full font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2 shadow-sm hover:-translate-y-0.5"
+                      className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-sm hover:-translate-y-0.5"
                       disabled={isSubmitting}
                     >
                       <RefreshCw className="w-4 h-4" />
@@ -381,11 +390,11 @@ export default function RegisterPage() {
 
           {step === 3 && (
             <div className="p-12 text-center">
-              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-950/50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600" />
               </div>
-              <h2 className="text-3xl font-display font-bold text-slate-900 mb-4">Registration Complete!</h2>
-              <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed">
+              <h2 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-4">Registration Complete!</h2>
+              <p className="text-slate-600 dark:text-slate-300 mb-8 max-w-md mx-auto leading-relaxed">
                 Your facial profile has been securely enrolled. You can now use FaceSnap for seamless identity verification.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -397,7 +406,7 @@ export default function RegisterPage() {
                 </a>
                 <a
                   href="/"
-                  className="px-8 py-4 bg-slate-100 text-slate-700 rounded-full font-bold hover:bg-slate-200 transition-all shadow-sm hover:-translate-y-0.5 inline-block"
+                  className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm hover:-translate-y-0.5 inline-block"
                 >
                   Return Home
                 </a>
