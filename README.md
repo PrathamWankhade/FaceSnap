@@ -1,317 +1,184 @@
 # FaceSnap
 
-AI-powered facial recognition attendance system for educational institutions. Combines a **Next.js 15** web frontend with a **FastAPI** backend using FaceNet + YOLO for real-time face detection and verification.
+**Campus attendance, verified by face — not by trust.**
 
-## Architecture
+FaceSnap is an AI-powered attendance system for colleges and universities. Students enroll once with a guided face capture; then live verification, doorway batch mode, group-photo processing, and CCTV monitoring all match faces against enrolled embeddings — and only verified matches ever become attendance records.
+
+Built with **Next.js 15 + Firebase** on the frontend and a **FastAPI + InsightFace ArcFace + Qdrant** recognition backend.
+
+---
+
+## Why FaceSnap?
+
+- **Verified, not detected** — a face in frame means nothing until the backend matches it against an enrolled embedding *and* it passes liveness checks. Unknown faces go to a review queue, never into the register.
+- **Liveness anti-spoofing** — multi-frame analysis (rPPG pulse signal, blink and motion cues) resists photo and video-replay attacks.
+- **Four capture modes** — 1:1 student verification, live doorway batch, group-photo upload, and CCTV/Pi camera streams, all writing one canonical attendance schema.
+- **No fake attendance, ever** — camera or API failures produce a visible error and zero records. Detection, recognition, and attendance are three separate, explicit states in the UI.
+- **Secure by default** — Firebase ID-token auth on every backend route, role-aware UI *and* API enforcement, server-side chatbot proxy (no keys in the browser), and tight Firestore rules.
+
+## How it works
 
 ```
-facesnap/
-├── frontend/                  # Next.js 15 (React 19, TypeScript)
-│   ├── app/                   # App Router pages & layouts
-│   │   ├── about/             # About page
-│   │   ├── attendance/        # Attendance records & logs
-│   │   ├── cctv/              # IP camera / CCTV monitoring
-│   │   ├── classroom/         # Batch doorway attendance
-│   │   ├── contact/           # Contact / support form
-│   │   ├── register/          # Student facial registration
-│   │   ├── student/           # Live identity verification
-│   │   ├── error.tsx          # Global error boundary
-│   │   ├── globals.css        # Tailwind v4 + custom utilities
-│   │   ├── layout.tsx         # Root layout (Nav, Footer, Chatbot)
-│   │   ├── loading.tsx        # Global loading state
-│   │   ├── not-found.tsx      # 404 page
-│   │   └── page.tsx           # Landing / dashboard
-│   ├── components/            # Shared UI
-│   │   ├── AuthProvider.tsx   # Firebase Auth context + Firestore profile
-│   │   ├── Chatbot.tsx        # AI assistant (Groq API)
-│   │   ├── ChatbotWrapper.tsx # Client-only dynamic import wrapper
-│   │   ├── ErrorBoundary.tsx  # React error boundary
-│   │   ├── Footer.tsx         # Site footer
-│   │   └── Navigation.tsx     # Top navigation bar
-│   ├── hooks/                 # Custom React hooks
-│   │   └── use-mobile.ts      # Responsive breakpoint detection
-│   ├── lib/                   # Utilities & config
-│   │   ├── firebase.ts        # Firebase init (lazy, SSR-safe)
-│   │   ├── firestore-error.ts # Human-readable Firestore errors
-│   │   ├── storage.ts         # Firebase Storage helpers
-│   │   ├── types.ts           # TypeScript interfaces
-│   │   └── utils.ts           # Misc helpers
-│   ├── public/                # Static assets
-│   │   ├── robots.txt         # SEO
-│   │   └── .gitkeep
-│   ├── .env.local             # Local environment (gitignored)
-│   ├── next.config.ts         # Next.js config (standalone output)
-│   ├── tsconfig.json          # TypeScript config
-│   ├── firestore.rules        # Firestore security rules
-│   ├── package.json           # Frontend dependencies
-│   └── postcss.config.mjs     # PostCSS / Tailwind config
-├── backend/                   # FastAPI Python server
-│   ├── app/                   # Application package
-│   │   ├── __init__.py
-│   │   ├── config.py          # Thresholds, host, CORS settings
-│   │   ├── main.py            # FastAPI entry point, CORS, routers
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── schemas.py     # Pydantic request/response models
-│   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   ├── detection.py   # /api/sync, /api/detect_webcam
-│   │   │   ├── pi_routes.py   # /api/pi/stream, /api/pi/capture, /api/pi/detect
-│   │   │   └── verification.py# /api/verify endpoint
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       ├── camera.py      # Raspberry Pi camera controller
-│   │       └── face_service.py# FaceNet embeddings + YOLO detection
-│   ├── desktop_app.py         # Legacy Tkinter desktop app (standalone)
-│   ├── requirements.txt       # Python dependencies
-│   └── yolov8n.pt             # Pre-trained YOLO weights
-├── .env.example               # Environment variable template
-├── .gitignore                 # Comprehensive ignore rules
-├── package.json               # Monorepo workspace scripts
-└── README.md                  # This file
+Enroll        Verify / Attend
+------        ----------------
+Google sign-in → student details → face capture → backend face check (exactly 1 face)
+  → Firestore profile (+ face embedding synced to Qdrant vector DB)
+
+Live scan (30 frames) → liveness analysis → ArcFace embedding → cosine-distance match
+  → threshold check → canonical attendance event (once per session)
 ```
 
-## Quick Start
+**Recognition pipeline:** InsightFace `buffalo_s` (ArcFace, 512-dim embeddings, cosine distance, threshold `0.35`) on ONNX Runtime · embeddings cached in Qdrant · liveness via rPPG + blink + motion scoring.
+
+## Quick start
 
 ### Prerequisites
 
 - **Node.js** 20+ and **npm**
 - **Python** 3.11+
-- **Firebase project** with Firestore, Authentication, and Storage enabled
-- **Groq API key** (free, no credit card) for the AI chatbot — get one at [console.groq.com](https://console.groq.com)
+- **Firebase project** with Authentication (Google), Firestore, and Storage enabled
+- **Groq API key** (free, no credit card) at [console.groq.com](https://console.groq.com) — for the campus assistant chatbot
 
 ### Setup
 
 ```bash
-# 1. Clone and install frontend dependencies
+# 1. Frontend dependencies
 cd frontend && npm install
 
-# 2. Install backend dependencies
+# 2. Backend dependencies
 cd ../backend
 python -m venv .venv
 .venv\Scripts\activate      # Windows
 source .venv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
 
-# 3. Configure environment
+# 3. Environment — copy the template and fill in your values
 cp ../.env.example ../frontend/.env.local
-# Edit frontend/.env.local with your Firebase project config & Groq API key
+# (see Environment variables below)
 ```
 
 ### Run
 
 ```bash
-# Terminal 1 — Backend API server
+# Terminal 1 — recognition API (default http://localhost:8000)
 cd backend
-python -m uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — Frontend dev server
+# Terminal 2 — web app (http://localhost:3000)
 cd frontend
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The API is at [http://localhost:8000](http://localhost:8000).
+Set `NEXT_PUBLIC_BACKEND_URL` in `frontend/.env.local` to wherever the API runs.
 
-## Environment Variables
+> First run downloads the InsightFace `buffalo_s` model pack (~a few hundred MB) into `backend/app/.insightface/` — this is cached locally and git-ignored.
 
-Copy `.env.example` to `frontend/.env.local` and fill in the values.
+## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_GROQ_API_KEY` | Yes (chatbot) | Groq API key for AI assistant — get free at [console.groq.com](https://console.groq.com) |
-| `NEXT_PUBLIC_AI_MODEL` | No | Groq model (default: `llama-3.3-70b`). Options: `llama-3.1-70b`, `llama-3.1-8b`, `mixtral-8x7b`, `gemma2-9b` |
-| `NEXT_PUBLIC_APP_URL` | No | Frontend URL (default: `http://localhost:3000`) |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | **Yes** | Firebase project ID |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | **Yes** | Firebase Web App ID |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | **Yes** | Firebase Web API key |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | **Yes** | Auth domain (`<project>.firebaseapp.com`) |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | **Yes** | Storage bucket (`<project>.firebasestorage.app`) |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | **Yes** | Sender ID from Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | No | Google Analytics measurement ID |
-| `NEXT_PUBLIC_BACKEND_URL` | **Yes** | Backend API URL (default: `http://localhost:8000`) |
+Copy `.env.example` to `frontend/.env.local` (frontend) and export backend-only values in the API's environment.
 
-## Tech Stack
+| Variable | Where | Required | Description |
+|----------|-------|----------|-------------|
+| `GROQ_API_KEY` | Backend / Next.js server | Yes (chatbot) | Groq key — **server-only, never `NEXT_PUBLIC_*`**. The browser calls `/api/chat`, which proxies securely. |
+| `AI_MODEL` | Next.js server | No | Chat model allowlist default: `llama-3.3-70b-versatile` |
+| `NEXT_PUBLIC_APP_URL` | Frontend | No | Frontend URL (default `http://localhost:3000`) |
+| `NEXT_PUBLIC_FIREBASE_*` | Frontend | **Yes** | `PROJECT_ID`, `APP_ID`, `API_KEY`, `AUTH_DOMAIN`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, optional `MEASUREMENT_ID` |
+| `NEXT_PUBLIC_BACKEND_URL` | Frontend | **Yes** | API base URL, e.g. `http://localhost:8000` |
+| `REQUIRE_AUTH` | Backend | **Yes in prod** | `true` enforces Firebase ID-token verification on all API routes (`false` = local-dev bypass) |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Backend | Prod | Path to service-account credentials for token verification |
+| `PI_SERVICE_KEY` | Backend | Prod (Pi) | Optional shared key letting cameras call `/api/pi/*` via `X-Service-Key` |
+| `PI_CAMERA_ENABLED` | Backend | No | `true` to open the local camera for Pi endpoints (default `false`) |
+| `QDRANT_PATH` | Backend | No | Vector DB storage path (`:memory:` default; set a directory for persistence) |
+| `HOST` / `PORT` / `CORS_ORIGINS` | Backend | No | Server bind (`0.0.0.0`:`8000`) and allowed CORS origins |
 
-### Frontend
+## API reference
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Next.js | 15.4+ | React framework with App Router |
-| React | 19.2+ | UI library |
-| TypeScript | 5.9+ | Type safety |
-| Tailwind CSS | 4.1 | Utility-first styling |
-| Firebase SDK | 12.11 | Auth, Firestore, Storage |
-| motion | 12.23 | Animations (successor to framer-motion) |
-| lucide-react | 0.553 | Icon library |
-| react-webcam | 7.2 | Browser webcam capture |
-| react-markdown | 10.1 | Chatbot message rendering |
-| sonner | 2.0 | Toast notifications |
-| class-variance-authority | 0.7 | Component variants |
+Base URL: `http://localhost:8000` (or your `PORT`). Authenticated routes expect `Authorization: Bearer <Firebase ID token>` (or `X-Service-Key` for camera endpoints when `PI_SERVICE_KEY` is set).
 
-### Backend
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | — | Welcome + engine info |
+| GET | `/api/health` | — | Model readiness, vector-DB count, camera state (powers the dashboard status cards) |
+| POST | `/api/verify` | User | 1:1 match: registered image vs live image |
+| POST | `/api/verify_liveness` | User | 1:1 match over 5–60 frames with liveness analysis |
+| POST | `/api/sync` | Admin/operator | Enroll up to 500 students' embeddings into Qdrant |
+| POST | `/api/detect_webcam` | User | Detect + recognize every face in a frame |
+| GET | `/api/pi/health` | Camera caller | Pi camera + engine health |
+| GET | `/api/pi/stream` | Camera caller | MJPEG camera stream |
+| GET | `/api/pi/capture` | Camera caller | Still frame as base64 |
+| GET | `/api/pi/detect` | Camera caller | Backend face detection + identity matching (unknown faces return `match: null` — never a guess) |
 
-| Technology | Purpose |
-|------------|---------|
-| FastAPI | Web framework |
-| TensorFlow / Keras-FaceNet | Face embedding generation |
-| Ultralytics YOLOv8 | Face detection |
-| OpenCV | Image processing |
-| scipy | Distance computation for face matching |
-| Uvicorn | ASGI server |
+Backend config lives in `backend/app/config.py` — key knobs:
 
-### AI / Computer Vision
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `ARCFACE_THRESHOLD` | `0.35` | Cosine-distance match threshold (lower = stricter) |
+| `EMBEDDING_DIM` | `512` | ArcFace embedding size |
+| `DETECTION_CONFIDENCE` | `0.5` | Face-detector confidence floor |
+| `LIVENESS_SCORE_THRESHOLD` | `0.5` | Combined rPPG/blink/motion pass mark |
+| Image guardrails | 8 MB / 4096 px | Oversized or undecodable images are rejected with a clean error |
 
-- **Face Detection**: YOLOv8n (ultralytics) — lightweight, real-time face bounding box detection
-- **Face Recognition**: Keras-FaceNet — generates 128-dimensional face embeddings for identity matching
-- **AI Chatbot**: Groq API — free inference for Llama 3 / Mixtral / Gemma models (no credit card needed)
-- **Backward Compatibility**: Legacy `desktop_app.py` uses `face_recognition` (dlib) for the standalone Tkinter app
+## App tour
 
-## API Endpoints
+| Route | Who | What |
+|-------|-----|------|
+| `/` | Everyone | Landing page, or a role-aware dashboard: student portal, staff operations, and live system-status cards |
+| `/register` | Signed-in | 3-step enrollment: details → guided face capture (with biometric-consent notice) → confirmation. The backend must see exactly one face before the profile is saved |
+| `/student` | Student | Personal info + live liveness scan. The result screen separates **Identity verified** from **Attendance recorded** — success is only claimed after the write confirms |
+| `/classroom` | Staff | Doorway live mode (Start/Stop, engine + sync + detection toolbar, verified/review counters) and group-photo mode with per-student reviewable results |
+| `/cctv` | Staff | Camera stream with Start/Pause/Stop, stream/engine/enrollment status chips, and a detection side panel — verified matches log once, unknowns wait for review |
+| `/attendance` | Signed-in | Filterable history with method badges (`individual_live`, `doorway_batch`, `cctv_stream`, `upload`) |
+| `/api/chat` | — | Server-side chatbot proxy: rate-limited, allowlisted models, 25 s timeout — the provider key never ships to the browser |
 
-All endpoints are served from `http://localhost:8000`.
+The UI ships in **light and dark themes** (toggle in the nav, persisted per device) with emerald = verified, amber = needs review, red = error.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | API health check |
-| POST | `/api/verify` | Verify a face image against enrolled students |
-| POST | `/api/sync` | Sync student face data (base64) to backend memory |
-| POST | `/api/detect_webcam` | Detect & recognize faces in a webcam frame |
-| GET | `/api/pi/stream` | Raspberry Pi camera MJPEG stream |
-| POST | `/api/pi/capture` | Capture a still from Pi camera |
-| POST | `/api/pi/detect` | Detect faces on Pi camera feed |
+## Data & security model
 
-### Backend Configuration (`backend/app/config.py`)
+- **Firestore** (`frontend/firestore.rules`): users own their profile; students are owner-writable; attendance is create-only by the record owner (or admin) against a strict canonical schema — `studentUid, name, rollNumber, department, year, semester, timestamp, method` (+ optional `liveness_score`, `sessionId`). Deploy with `firebase deploy --only firestore:rules` from `frontend/`.
+- **Storage**: face images live at `faces/{uid}/{timestamp}.jpg`; `deleteAllFaceImages()` removes every object recursively. Registration also keeps a base64 capture on the student doc for matching fallback.
+- **Backend is the authority**: Firestore rules are the client boundary, but the API independently verifies ID tokens and roles on every route — Admin SDK writes bypass rules, so the backend never trusts them.
+- **Privacy**: enrollment shows a biometric-consent notice; profiles (and therefore face data) can be deleted anytime from the student portal. See [`docs/SECURITY.md`](docs/SECURITY.md).
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `RECOGNITION_THRESHOLD` | 0.85 | Euclidean distance threshold for face matching |
-| `YOLO_CONFIDENCE` | 0.3 | Minimum confidence for YOLO detection |
-| `FACENET_INPUT_SIZE` | (160, 160) | Input image size for FaceNet model |
-| `HOST` | 0.0.0.0 | Server bind address |
-| `PORT` | 8000 | Server port |
-| `CORS_ORIGINS` | * | Allowed CORS origins (comma-separated) |
+## Testing & CI
 
-## Pages & Routing
-
-| Route | Auth Required | Description |
-|-------|---------------|-------------|
-| `/` | No | Landing page / dashboard with feature overview |
-| `/register` | Yes | Register a new student with facial image capture |
-| `/student` | Yes | Live one-on-one facial identity verification |
-| `/classroom` | Yes | Batch doorway attendance for multiple students |
-| `/cctv` | Yes | IP camera / CCTV-based monitoring and detection |
-| `/attendance` | Yes | View attendance records and history |
-| `/contact` | No | Contact / inquiry form |
-| `/about` | No | About the project |
-
-## Firebase Data Model
-
-### Firestore Collections
-
-#### `users/{uid}`
-Stores user profile and role.
-
-```typescript
-{
-  uid: string;          // Firebase Auth UID
-  email: string;        // User email
-  displayName?: string; // Optional display name
-  role: "admin" | "student";
-  createdAt: string;    // ISO 8601 date string
-}
-```
-
-#### `students/{studentId}`
-Stores enrolled student profiles with facial data.
-
-```typescript
-{
-  uid: string;
-  email: string;
-  name: string;
-  rollNumber: string;
-  department: string;
-  year: string;
-  semester: string;
-  faceImageBase64: string; // Backward-compatible base64 image
-  registeredAt: string;    // ISO 8601
-}
-```
-
-#### `attendance/{attendanceId}`
-Stores attendance log entries.
-
-```typescript
-{
-  studentUid: string;
-  name: string;
-  rollNumber: string;
-  department: string;
-  year: string;
-  semester: string;
-  timestamp: string;   // ISO 8601
-  method: "individual_live" | "doorway_batch" | "cctv_stream" | "upload";
-}
-```
-
-### Firebase Storage
-
-Face images are uploaded to `gs://<bucket>/faces/<uid>.jpg` for efficient retrieval and to avoid Firestore's 1 MiB document size limit. The `lib/storage.ts` module provides `uploadFaceImage()` and `deleteFaceImage()` helpers.
-
-### Security Rules
-
-Firestore rules enforce:
-- **Users**: Own profile read/write; admins can read/delete all
-- **Students**: Authenticated read; owner write; admin/owner delete
-- **Attendance**: Authenticated read; create by owner or admin; no updates; admin delete
-
-Rules are defined in `frontend/firestore.rules` — deploy via:
 ```bash
-firebase deploy --only firestore:rules
+cd backend && python -m pytest -q        # matching-math unit tests (no model weights needed)
+cd frontend && npm run lint              # ESLint
+cd frontend && npx tsc --noEmit          # type check
+cd frontend && npm run build             # production build
+```
+
+`.github/workflows/ci.yml` runs frontend lint + type-check + build and the backend test suite on every push/PR.
+
+## Project structure
+
+```
+├── frontend/                 # Next.js 15 (React 19, TypeScript, Tailwind v4)
+│   ├── app/                  # Routes: page (dashboard), register, student,
+│   │                         #   classroom, cctv, attendance, about, contact, api/chat
+│   ├── components/           # AuthProvider (role-aware), ThemeProvider/Toggle,
+│   │                         #   Navigation (role-aware), Chatbot (via /api/chat), Footer
+│   ├── lib/                  # firebase, attendance (canonical record builder + auth headers),
+│   │                         #   storage, types, utils
+│   └── firestore.rules       # Client security boundary
+├── backend/                  # FastAPI recognition service
+│   ├── app/auth.py           # Firebase ID-token verification + role/service-key gates
+│   ├── app/routes/           # verification, detection, pi_routes
+│   ├── app/services/         # face_service (ArcFace), liveness_service (rPPG/blink/motion),
+│   │                         #   vector_service (Qdrant), camera (lifecycle + health)
+│   ├── tests/                # pytest suite for matching math
+│   └── desktop_app.py        # Legacy standalone Tkinter app (independent of the web stack)
+├── docs/                     # Architecture, security, deployment guides
+├── .github/workflows/ci.yml # Lint + type-check + build + tests
+└── .env.example              # Environment template
 ```
 
 ## Deployment
 
-### Frontend (Vercel / any Node.js host)
-
-```bash
-cd frontend
-NEXT_PUBLIC_GROQ_API_KEY=... npm run build
-# Deploy the .next/standalone output
-```
-
-The `next.config.ts` is pre-configured with `output: 'standalone'` for deployment.
-
-### Backend (any Python host)
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-## Monorepo Scripts
-
-From the root directory:
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start frontend dev server |
-| `npm run build` | Build frontend for production |
-| `npm run start` | Start frontend production server |
-| `npm run lint` | Run ESLint on frontend |
-| `npm run backend` | Start backend API server with auto-reload |
-| `npm run setup` | Install both frontend and backend dependencies |
-
-## Legacy Desktop App
-
-`backend/desktop_app.py` is a standalone Tkinter-based attendance application using `face_recognition` (dlib). It is independent of the web stack and can be run directly:
-```bash
-python backend/desktop_app.py
-```
-Requires `face-recognition` (dlib) which must be compiled with a C++ toolchain.
+- **Frontend** (Vercel / any Node host): `next.config.ts` uses `output: 'standalone'`. Set all `NEXT_PUBLIC_*` vars plus server-side `GROQ_API_KEY`.
+- **Backend** (any Python host with ~2 GB RAM for models): `pip install -r requirements.txt`, provide `FIREBASE_SERVICE_ACCOUNT_JSON`, set `REQUIRE_AUTH=true`, `QDRANT_PATH` to a persistent volume, and run `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+- Full checklists in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## License
 
 MIT
-# FaceSnap
