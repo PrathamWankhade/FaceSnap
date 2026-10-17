@@ -1,15 +1,14 @@
 'use client';
 
-import Image from 'next/image';
 import { Target, Users, ShieldCheck, Database, Server, Cpu } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const team = [
-  { name: 'Pratham Wankhade', role: 'Team Lead & AI/ML Engineer', image: "/assets/boy.png" },
-  { name: 'Pranav Ladole', role: 'Backend Developer (Database & Logic)', image: "/assets/student.png" },
-  { name: 'Suraj Borkute', role: 'Frontend Developer (UI)', image: "/assets/man-avatar.png" },
-  { name: 'Yadnesh Umredkar', role: 'UI/UX Designer', image: "/assets/young-boy.png" },
-  { name: 'Harsh Banode', role: 'Backend Support / System Implementation', image: "/assets/boy (1).png" }
+  { name: 'Pratham Wankhade', role: 'Team Lead & AI/ML Engineer', initials: 'PW' },
+  { name: 'Pranav Ladole', role: 'Backend Developer (Database & Logic)', initials: 'PL' },
+  { name: 'Suraj Borkute', role: 'Frontend Developer (UI)', initials: 'SB' },
+  { name: 'Yadnesh Umredkar', role: 'UI/UX Designer', initials: 'YU' },
+  { name: 'Harsh Banode', role: 'Backend Support / System Implementation', initials: 'HB' }
 ];
 
 export default function AboutPage() {
@@ -101,8 +100,8 @@ export default function AboutPage() {
                 transition={{ delay: idx * 0.1 }}
                 className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-lg shadow-slate-200/50 border border-slate-100 dark:border-slate-800 p-8 text-center hover:-translate-y-2 transition-transform duration-300"
               >
-                <div className="relative w-32 h-32 mx-auto mb-6 overflow-hidden rounded-[2rem] shadow-inner bg-slate-100 dark:bg-slate-800">
-                  <Image src={member.image} alt={member.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover" />
+                <div className="relative w-32 h-32 mx-auto mb-6 overflow-hidden rounded-[2rem] shadow-inner bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+                  <span className="font-display text-4xl font-bold text-white">{member.initials}</span>
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{member.name}</h3>
                 <p className="text-indigo-600 font-bold text-sm uppercase tracking-wider">{member.role}</p>

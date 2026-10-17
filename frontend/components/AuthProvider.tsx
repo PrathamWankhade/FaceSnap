@@ -62,7 +62,7 @@ async function ensureUserProfile(currentUser: User): Promise<UserRole> {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(() => auth != null);
+  const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
@@ -89,7 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!auth) {
-      return;
+      // No Firebase config (e.g. unconfigured env): resolve on the next tick
+      // so the UI never hangs on the loading state.
+      const id = setTimeout(() => setLoading(false), 0);
+      return () => clearTimeout(id);
     }
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
