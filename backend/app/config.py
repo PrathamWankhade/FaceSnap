@@ -47,6 +47,10 @@ CORS_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ORIGINS", _cors_def
 # Per-IP limit for the expensive face/verify endpoints. 0 disables the limiter.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
 
+# Only trust X-Forwarded-For when the app is actually behind a reverse proxy
+# you control; otherwise clients can spoof the header to dodge rate limits.
+TRUST_PROXY_HEADERS = _env_bool("TRUST_PROXY_HEADERS", default=False)
+
 # Camera
 PI_CAMERA_ENABLED = _env_bool("PI_CAMERA_ENABLED", default=False)
 PI_SERVICE_KEY = os.getenv("PI_SERVICE_KEY", "").strip()

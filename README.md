@@ -102,6 +102,7 @@ Copy `frontend/.env.example` → `frontend/.env.local` and `backend/.env.example
 | `REQUIRE_AUTH` | Backend | **Yes in prod** | `true` verifies Firebase ID tokens. Defaults to `true` when `APP_ENV=production`, `false` otherwise. Production refuses to boot with the bypass enabled. |
 | `CORS_ORIGINS` | Backend | **Yes in prod** | Comma-separated browser origins. Development defaults to `*`; production requires explicit origins. |
 | `RATE_LIMIT_PER_MINUTE` | Backend | No | Per-IP limit for face/verification routes (default `120`, `0` disables). In-memory per worker. |
+| `TRUST_PROXY_HEADERS` | Backend | No | Trust `X-Forwarded-For` for client IPs. Keep `false` unless a proxy you control overwrites the header. |
 | `DATABASE_URL` | Backend | No | SQLAlchemy DSN. Default `sqlite:///./facesnap.db`; use `postgresql+psycopg://…` in production |
 | `FACE_IMAGE_DIR` | Backend | No | Directory for enrollment photos (default `./data/faces`). Mount a persistent volume in production |
 | `ADMIN_EMAILS` | Backend | No | Comma-separated emails promoted to `admin` on first login |

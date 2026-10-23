@@ -16,6 +16,7 @@
    - `PI_SERVICE_KEY=<long random string>` and share it with camera devices
    - `CORS_ORIGINS=https://your-frontend-domain` (explicit origins; `*` is rejected)
    - `RATE_LIMIT_PER_MINUTE=120` (tune for your expected scan volume)
+   - `TRUST_PROXY_HEADERS=true` **only** if a reverse proxy you control overwrites `X-Forwarded-For`
    - `HOST=0.0.0.0`, `PORT=8000`
 5. Run: `uvicorn app.main:app --host 0.0.0.0 --port 8000` (use a process manager; one worker per GPU). `init_db()` creates tables and the sessionless-attendance partial unique index idempotently on first boot — introduce Alembic before your first schema change.
 6. Smoke-test: `GET /api/health` → `face_model_ready: true`, `vector_db_ready: true`, `database_ready: true`, `environment: "production"`, `auth_required: true`. First boot downloads models — expect a slow start.

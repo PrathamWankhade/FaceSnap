@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 
 from fastapi import HTTPException, Request, status
 
-from app.config import RATE_LIMIT_PER_MINUTE
+from app.config import RATE_LIMIT_PER_MINUTE, TRUST_PROXY_HEADERS
 
 WINDOW_SECONDS = 60.0
 
@@ -47,9 +47,12 @@ _limiter = SlidingWindowLimiter(RATE_LIMIT_PER_MINUTE)
 
 
 def _client_key(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # X-Forwarded-For is client-controlled unless a trusted proxy overwrites it.
+    # Trusting it unconditionally would let anyone bypass the limiter.
+    if TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 

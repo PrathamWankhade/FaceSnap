@@ -3,8 +3,10 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 import app.auth as auth_module
+import app.rate_limit as rate_limit_module
 from app.auth import require_camera_caller, require_roles
 from app.db import User
 from app.main import _validate_runtime
@@ -72,3 +74,29 @@ def test_sliding_window_limiter_blocks_after_limit():
 
 def test_rate_limit_can_be_disabled():
     assert SlidingWindowLimiter(0).allow("anything") is True
+
+
+def _request_with_forwarded_for(value: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/verify",
+            "query_string": b"",
+            "headers": [(b"x-forwarded-for", value.encode())],
+            "client": ("203.0.113.9", 4321),
+        }
+    )
+
+
+def test_rate_limit_ignores_spoofed_forwarded_for_by_default(monkeypatch):
+    monkeypatch.setattr(rate_limit_module, "TRUST_PROXY_HEADERS", False)
+    assert rate_limit_module._client_key(_request_with_forwarded_for("1.2.3.4")) == "203.0.113.9"
+
+
+def test_rate_limit_trusts_forwarded_for_only_when_configured(monkeypatch):
+    monkeypatch.setattr(rate_limit_module, "TRUST_PROXY_HEADERS", True)
+    assert (
+        rate_limit_module._client_key(_request_with_forwarded_for("1.2.3.4, 10.0.0.1"))
+        == "1.2.3.4"
+    )

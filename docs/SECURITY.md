@@ -16,7 +16,7 @@
 - Enrollment, attendance and profile routes require an authenticated user. Staff endpoints (`/api/analytics/overview`, session creation, embedding backfill, `/api/sync`) require `admin`/`operator`.
 - **Camera and matching endpoints are staff-only** (`/api/detect_webcam`, `/api/verify`, `/api/pi/*`) unless a valid service key is presented. Students cannot open the camera stream or use the backend as a general face-comparison oracle. The student flow uses `/api/verify_liveness` against their own enrolled template.
 - Attendance is **idempotent at the database level**: a unique `(student_id, session_id)` constraint for session-scoped marks, plus a partial unique index on `(student_id, method, date(captured_at)) WHERE session_id IS NULL`. Application checks return a friendly `duplicate: true`; the index closes the concurrent-request race.
-- A per-IP sliding-window limiter (`RATE_LIMIT_PER_MINUTE`, default 120/min) guards the expensive face/verification routes. It is in-process; multi-worker deployments should move it to Redis or the edge.
+- A per-IP sliding-window limiter (`RATE_LIMIT_PER_MINUTE`, default 120/min) guards the expensive face/verification routes. It uses the direct socket address by default and trusts `X-Forwarded-For` only when `TRUST_PROXY_HEADERS=true`. It is in-process; multi-worker deployments should move it to Redis or the edge.
 
 ## What the system guarantees
 
