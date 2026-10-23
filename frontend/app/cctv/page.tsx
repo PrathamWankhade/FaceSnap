@@ -5,12 +5,10 @@ import { useAuth } from '@/components/AuthProvider';
 import { motion } from 'motion/react';
 import { Camera, Settings, RefreshCw, AlertCircle, ShieldAlert, Users, Video, CheckCircle2, Square, Play, Loader2, Pause, Activity } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
+import { api } from '@/lib/api';
 import type { StudentData, CCTVDetectResponse, CCTVProcessedFace } from '@/lib/types';
 import { getBackendUrl } from '@/lib/utils';
-import { authHeaders, buildAttendanceRecord } from '@/lib/attendance';
+import { authHeaders, markAttendance } from '@/lib/attendance';
 
 type PipelineState = 'idle' | 'live' | 'paused';
 
@@ -40,11 +38,10 @@ export default function CCTVPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'students'));
-        const students = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudentData));
-        setRegisteredStudents(students);
+        const studentsRes = await api.get<{ students: StudentData[] }>('/api/students');
+        setRegisteredStudents(studentsRes.students);
       } catch (error) {
-        console.error("Error loading students:", error);
+        console.error('Error loading students:', error);
       }
       try {
         const headers = await authHeaders();
@@ -75,22 +72,12 @@ export default function CCTVPage() {
     // Only call this with a backend-matched student (see detection handler).
     try {
       loggedStudentsRef.current.add(student.uid);
-      const payload = await buildAttendanceRecord(
-        {
-          uid: student.uid,
-          name: student.name,
-          rollNumber: student.rollNumber || 'N/A',
-          department: student.department || 'N/A',
-          year: student.year || 'N/A',
-          semester: student.semester || 'N/A',
-        },
-        'cctv_stream'
-      );
-      await addDoc(collection(db, 'attendance'), payload);
+      await markAttendance({ studentUid: student.uid, method: 'cctv_stream' });
       setLoggedUids((prev) => (prev.includes(student.uid) ? prev : [...prev, student.uid]));
       toast.success(`Attendance recorded for ${student.name}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'attendance');
+      console.error('Attendance error:', error);
+      toast.error(error instanceof Error ? error.message : 'Could not record attendance.');
       loggedStudentsRef.current.delete(student.uid);
     }
   }, []);

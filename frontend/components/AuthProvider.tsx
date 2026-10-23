@@ -8,7 +8,8 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth, googleProvider, db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { getBackendUrl } from '../lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -42,22 +43,37 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+/**
+ * Resolve the authoritative role from the backend (relational users table).
+ * Firebase remains the identity provider only.
+ */
 async function ensureUserProfile(currentUser: User): Promise<UserRole> {
-  if (!db) throw new Error('Database not initialized.');
-  const userRef = doc(db, 'users', currentUser.uid);
-  const userSnap = await getDoc(userRef);
-  if (!userSnap.exists()) {
-    await setDoc(userRef, {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      displayName: currentUser.displayName,
-      role: 'student',
-      createdAt: new Date().toISOString(),
+  try {
+    const token = await currentUser.getIdToken();
+    const res = await fetch(getBackendUrl('/api/me'), {
+      headers: { Authorization: `Bearer ${token}` },
     });
-    return 'student';
+    if (res.ok) {
+      const me = (await res.json()) as { role?: string };
+      return me.role === 'admin' || me.role === 'operator' ? 'admin' : 'student';
+    }
+  } catch {
+    // Backend unreachable — fall through to the legacy profile read.
   }
-  const data = userSnap.data() as { role?: unknown };
-  return data.role === 'admin' ? 'admin' : 'student';
+
+  if (db) {
+    try {
+      const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userSnap.exists()) {
+        const data = userSnap.data() as { role?: unknown };
+        return data.role === 'admin' ? 'admin' : 'student';
+      }
+    } catch {
+      // Firestore disabled or rules block the read.
+    }
+  }
+
+  return 'student';
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

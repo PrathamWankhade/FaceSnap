@@ -7,7 +7,7 @@ export interface StudentData {
   department: string;
   year: string;
   semester: string;
-  faceImageBase64: string;
+  faceImageBase64?: string;
   registeredAt: string;
 }
 

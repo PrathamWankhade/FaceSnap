@@ -5,11 +5,8 @@ import Webcam from 'react-webcam';
 import { Camera, CheckCircle2, RefreshCw, AlertCircle, LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { motion } from 'motion/react';
-import { getBackendUrl } from '@/lib/utils';
-import { authHeaders } from '@/lib/attendance';
+import { api, ApiError } from '@/lib/api';
 
 export default function RegisterPage() {
   const { user, loading, signIn } = useAuth();
@@ -65,59 +62,33 @@ export default function RegisterPage() {
         return;
       }
 
-      const q = query(collection(db, 'students'), where('uid', '==', user.uid));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        toast.error("You have already registered a facial profile.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Require exactly one detectable face before enrollment.
-      try {
-        const headers = await authHeaders();
-        const qualityRes = await fetch(getBackendUrl('/api/detect_webcam'), {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ image_base64: imageSrc }),
-        });
-        if (!qualityRes.ok) {
-          throw new Error(`Face check failed (${qualityRes.status})`);
+      // The backend validates the photo (exactly one face), stores the image in
+      // the object store, writes the student row and indexes the ArcFace
+      // embedding — all in one call.
+      const result = await api.post<{ created: boolean; embedding_indexed: boolean }>(
+        '/api/students/enroll',
+        {
+          name: formData.name,
+          roll_number: formData.rollNumber,
+          department: formData.department,
+          year: formData.year,
+          semester: formData.semester,
+          image_base64: imageSrc,
         }
-        const quality = await qualityRes.json();
-        if (quality.faces_detected !== 1) {
-          toast.error(
-            quality.faces_detected === 0
-              ? 'No face detected. Please retake in good lighting.'
-              : 'Multiple faces detected. Please capture only your face.'
-          );
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not validate face. Is the backend running?');
-        setIsSubmitting(false);
-        return;
+      );
+
+      if (!result.embedding_indexed) {
+        toast.warning('Profile saved, but the recognition index is offline. Ask staff to run a backfill.');
       }
-
-      await addDoc(collection(db, 'students'), {
-        uid: user.uid,
-        email: user.email,
-        name: formData.name,
-        rollNumber: formData.rollNumber,
-        department: formData.department,
-        year: formData.year,
-        semester: formData.semester,
-        faceImageBase64: imageSrc,
-        registeredAt: new Date().toISOString()
-      });
-
-      toast.success("Registration successful!");
+      toast.success(result.created ? 'Registration successful!' : 'Profile updated successfully!');
       setStep(3);
     } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Failed to register. Please try again.");
+      console.error('Registration error:', error);
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to register. Is the backend running?');
+      }
     } finally {
       setIsSubmitting(false);
     }

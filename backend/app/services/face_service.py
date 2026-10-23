@@ -35,6 +35,23 @@ class FaceService:
     def is_ready(self):
         return self.app is not None
 
+    def count_faces(self, image_bytes) -> int:
+        """Number of detected faces, or 0 when the image is unusable."""
+        if self.app is None or not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
+            return 0
+        try:
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return 0
+            h, w = img.shape[:2]
+            if h <= 0 or w <= 0 or max(h, w) > MAX_IMAGE_DIM:
+                return 0
+            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            return len(self.app.get(rgb_img))
+        except Exception:
+            return 0
+
     def get_face_encoding(self, image_bytes):
         if self.app is None:
             return None

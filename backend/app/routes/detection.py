@@ -4,13 +4,13 @@ from app.services.vector_service import vector_service
 from app.models.schemas import SyncRequest, SyncResponse, DetectWebcamRequest
 from app.models.schemas import DetectWebcamResponse
 from app.config import ARCFACE_THRESHOLD
-from app.auth import get_current_user, require_role
+from app.auth import get_current_user, require_roles
 
 router = APIRouter()
 
 
 @router.post("/api/sync", response_model=SyncResponse)
-async def sync_students(request: SyncRequest, user=Depends(require_role("admin", "operator"))):
+async def sync_students(request: SyncRequest, user=Depends(require_roles("admin", "operator"))):
     if not face_service.is_ready:
         raise HTTPException(status_code=503, detail="Face recognition model not loaded.")
     if len(request.students) > 500:

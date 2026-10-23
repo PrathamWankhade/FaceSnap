@@ -1,3 +1,5 @@
+import uuid
+
 import numpy as np
 from app.config import EMBEDDING_DIM, QDRANT_PATH
 
@@ -40,7 +42,9 @@ class VectorService:
         if self.client is None:
             return
         from qdrant_client.models import PointStruct
-        point_id = abs(hash(uid)) % (2**63)
+        # Deterministic ID: re-enrolling updates the same point instead of
+        # depending on Python's per-process randomized hash().
+        point_id = uuid.uuid5(uuid.NAMESPACE_URL, f"facesnap:{uid}").int % (2**63)
         self.client.upsert(
             collection_name=self.collection_name,
             points=[PointStruct(id=point_id, vector=embedding, payload=payload)],
@@ -64,7 +68,7 @@ class VectorService:
                 "name": r.payload.get("name", ""),
                 "roll_no": r.payload.get("roll_no", ""),
                 "score": float(r.score),
-                "distance": float(1 - r.score),
+                "distance": max(0.0, float(1 - r.score)),
             })
         return matches
 

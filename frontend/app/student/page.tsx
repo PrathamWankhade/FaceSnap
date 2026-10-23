@@ -5,14 +5,12 @@ import Webcam from 'react-webcam';
 import { ShieldCheck, User as UserIcon, Camera, RefreshCw, CheckCircle2, XCircle, Loader2, LogIn, Scan, Trash2, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
+import { api, ApiError } from '@/lib/api';
 import type { StudentData, VerifyResponse } from '@/lib/types';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { getBackendUrl } from '@/lib/utils';
-import { authHeaders } from '@/lib/attendance';
+import { authHeaders, markAttendance } from '@/lib/attendance';
 
 const LIVENESS_FRAMES = 30;
 const FRAME_INTERVAL_MS = 50;
@@ -39,18 +37,22 @@ export default function StudentPage() {
       if (!user) return;
       setIsLoadingData(true);
       try {
-        const q = query(collection(db, 'students'), where('uid', '==', user.uid));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const docData = querySnapshot.docs[0];
-          setStudentData({ id: docData.id, ...docData.data() } as StudentData);
-        } else {
-          setStudentData(null);
+        const profile = await api.get<StudentData>('/api/students/me');
+        let faceImageBase64: string | undefined;
+        try {
+          const face = await api.get<{ image_base64: string }>('/api/students/me/face');
+          faceImageBase64 = face.image_base64;
+        } catch {
+          // Photo missing from the object store; the profile still loads.
         }
+        setStudentData({ ...profile, faceImageBase64 });
       } catch (error) {
-        console.error("Error fetching student data:", error);
-        toast.error("Failed to load your profile.");
-        handleFirestoreError(error, OperationType.GET, 'students');
+        if (error instanceof ApiError && error.status === 404) {
+          setStudentData(null);
+        } else {
+          console.error('Error fetching student data:', error);
+          toast.error('Failed to load your profile.');
+        }
       } finally {
         setIsLoadingData(false);
       }
@@ -63,14 +65,13 @@ export default function StudentPage() {
     if (!studentData?.id) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'students', studentData.id));
-      toast.success("Profile deleted successfully.");
+      await api.delete(`/api/students/${studentData.id}`);
+      toast.success('Profile deleted successfully.');
       setStudentData(null);
       setShowDeleteModal(false);
     } catch (error) {
-      console.error("Error deleting profile:", error);
-      toast.error("Failed to delete profile.");
-      handleFirestoreError(error, OperationType.DELETE, `students/${studentData.id}`);
+      console.error('Error deleting profile:', error);
+      toast.error(error instanceof ApiError ? error.message : 'Failed to delete profile.');
     } finally {
       setIsDeleting(false);
     }
@@ -105,6 +106,10 @@ export default function StudentPage() {
   const captureAndVerify = useCallback(async () => {
     if (!webcamRef.current || !studentData) {
       toast.error("Camera not ready or student data not found.");
+      return;
+    }
+    if (!studentData.faceImageBase64) {
+      toast.error('Your enrollment photo is unavailable. Please re-register your face.');
       return;
     }
 
@@ -150,23 +155,16 @@ export default function StudentPage() {
 
         setAttendanceState('saving');
         try {
-          await addDoc(collection(db, 'attendance'), {
-            studentUid: user?.uid,
-            name: studentData.name,
-            rollNumber: studentData.rollNumber,
-            department: studentData.department,
-            year: studentData.year,
-            semester: studentData.semester,
-            timestamp: new Date().toISOString(),
+          const attendance = await markAttendance({
             method: 'individual_live',
             liveness_score: result.liveness?.score ?? null,
           });
           setAttendanceState('saved');
-          toast.success('Attendance recorded.');
-        } catch (fsError) {
-          console.error("Firestore error:", fsError);
+          toast.success(attendance.duplicate ? 'Attendance already recorded for today.' : 'Attendance recorded.');
+        } catch (apiError) {
+          console.error('Attendance API error:', apiError);
           setAttendanceState('failed');
-          handleFirestoreError(fsError, OperationType.CREATE, 'attendance');
+          toast.error(apiError instanceof Error ? apiError.message : 'Could not record attendance.');
         }
       } else {
         setVerificationResult('failed');
@@ -179,7 +177,7 @@ export default function StudentPage() {
     } finally {
       setIsVerifying(false);
     }
-  }, [studentData, user, captureFrames]);
+  }, [studentData, captureFrames]);
 
   if (loading) {
     return (
@@ -303,14 +301,20 @@ export default function StudentPage() {
             <div className="p-8 md:p-12">
               <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
                 <div className="w-48 h-48 relative rounded-3xl overflow-hidden border-4 border-slate-100 dark:border-slate-800 flex-shrink-0 bg-slate-100 dark:bg-slate-800 shadow-lg">
-                  <Image
-                    src={studentData.faceImageBase64}
-                    alt="Registered Face"
-                    fill
-                    sizes="192px"
-                    className="object-cover"
-                    unoptimized
-                  />
+                  {studentData.faceImageBase64 ? (
+                    <Image
+                      src={studentData.faceImageBase64}
+                      alt="Registered Face"
+                      fill
+                      sizes="192px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <UserIcon className="w-20 h-20 text-slate-400" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 w-full">

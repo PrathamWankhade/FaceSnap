@@ -15,6 +15,14 @@ backend/app/.insightface/
 *.onnx
 *.pt
 
+# Local system-of-record data (SQLite DB, face images, Qdrant index)
+data/
+backend/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Environment
 .env
 .env.local

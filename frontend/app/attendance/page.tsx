@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { motion } from 'motion/react';
 import { CalendarDays, Clock, UserCheck, Loader2, LogIn } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
+import { api } from '@/lib/api';
 
 function methodBadgeClasses(method?: string): string {
   switch (method) {
@@ -23,6 +22,12 @@ function methodBadgeClasses(method?: string): string {
   }
 }
 
+function formatTimestamp(timestamp: AttendanceRecord['timestamp']): string {
+  if (!timestamp) return 'N/A';
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? String(timestamp) : date.toLocaleString();
+}
+
 export default function AttendancePage() {
   const { user, loading: authLoading } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -32,14 +37,8 @@ export default function AttendancePage() {
     const fetchAttendance = async () => {
       if (!user) return;
       try {
-        const q = query(
-          collection(db, 'attendance'),
-          orderBy('timestamp', 'desc'),
-          limit(50)
-        );
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-        setRecords(data);
+        const data = await api.get<{ records: AttendanceRecord[] }>('/api/attendance?limit=50');
+        setRecords(data.records);
       } catch (error) {
         console.error("Error fetching attendance:", error);
       } finally {
@@ -106,7 +105,7 @@ export default function AttendancePage() {
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${methodBadgeClasses(record.method)}`}>{record.method}</span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-                        {record.timestamp?.toDate?.().toLocaleString() || record.timestamp || 'N/A'}
+                        {formatTimestamp(record.timestamp)}
                       </td>
                     </tr>
                   ))}

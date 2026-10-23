@@ -2,7 +2,13 @@ import numpy as np
 import cv2
 from scipy import signal
 from scipy.fft import fft, fftfreq
-from app.config import LIVENESS_FRAME_COUNT, LIVENESS_HEARTBEAT_MIN, LIVENESS_HEARTBEAT_MAX, LIVENESS_SCORE_THRESHOLD
+from app.config import (
+    LIVENESS_FRAME_COUNT,
+    LIVENESS_HEARTBEAT_MIN,
+    LIVENESS_HEARTBEAT_MAX,
+    LIVENESS_RPPG_PASS,
+    LIVENESS_SCORE_THRESHOLD,
+)
 
 
 class LivenessService:
@@ -23,7 +29,9 @@ class LivenessService:
         motion_score = self._detect_motion(frames)
 
         combined = 0.5 * rppg_score + 0.3 * blink_score + 0.2 * motion_score
-        live = combined >= LIVENESS_SCORE_THRESHOLD
+        # Either a strong pulse alone, or a decent combined score across
+        # independent signals, marks the capture as live.
+        live = combined >= LIVENESS_SCORE_THRESHOLD or rppg_score >= LIVENESS_RPPG_PASS
 
         return {
             "live": bool(live),
@@ -54,6 +62,13 @@ class LivenessService:
                 skin_signal = self._extract_skin_signal(center_crop)
                 skin_signals.append(skin_signal)
             skin_signals = np.array(skin_signals)
+            # A static image (printed photo, paused/looped video) has no
+            # temporal colour variation. Without this guard, floating-point
+            # noise gets normalised and the FFT falsely reports a pulse.
+            # Measure variation over time *per channel* (channel means differ
+            # from each other, so a global std would be misleading).
+            if skin_signals.size == 0 or float(np.std(skin_signals, axis=0).max()) < 0.05:
+                return 0.0
             skin_signals = self._detrend(skin_signals)
             if skin_signals.size < 10:
                 return 0.0
@@ -101,6 +116,8 @@ class LivenessService:
     def _compute_peak_power(self, bvp):
         n = len(bvp)
         if n < 10:
+            return 0.0
+        if float(np.std(bvp)) < 1e-9:
             return 0.0
         yf = fft(bvp)
         xf = fftfreq(n, 1.0 / self.fps_target)

@@ -5,12 +5,10 @@ import Webcam from 'react-webcam';
 import { Camera, Users, Upload, CheckCircle2, AlertCircle, Loader2, Play, Square, Scan, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '@/lib/firestore-error';
-import type { StudentData, DetectWebcamResponse, WebcamUIDetection, SyncStudentData } from '@/lib/types';
+import { api, ApiError } from '@/lib/api';
+import type { StudentData, DetectWebcamResponse, WebcamUIDetection } from '@/lib/types';
 import { getBackendUrl } from '@/lib/utils';
-import { authHeaders, buildAttendanceRecord } from '@/lib/attendance';
+import { authHeaders, markAttendance } from '@/lib/attendance';
 import { motion } from 'motion/react';
 
 export default function ClassroomPage() {
@@ -37,42 +35,32 @@ export default function ClassroomPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'students'));
-        const students = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudentData));
-        setRegisteredStudents(students);
+        const [studentsRes, health] = await Promise.all([
+          api.get<{ students: StudentData[] }>('/api/students'),
+          fetch(getBackendUrl('/api/health'), { headers: await authHeaders() })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null),
+        ]);
+        setRegisteredStudents(studentsRes.students);
 
-        if (students.length > 0) {
-          const syncData: SyncStudentData[] = students.map(s => ({
-            uid: s.uid,
-            name: s.name,
-            roll_no: s.rollNumber || 'N/A',
-            image_base64: s.faceImageBase64
-          })).filter(s => s.image_base64);
-
-          try {
-            const headers = await authHeaders();
-            const syncRes = await fetch(getBackendUrl('/api/sync'), {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ students: syncData })
-            });
-            if (!syncRes.ok) {
-              throw new Error(`Sync failed (${syncRes.status})`);
-            }
-            const syncJson = await syncRes.json().catch(() => null);
-            setSyncedCount(typeof syncJson?.synced_count === 'number' ? syncJson.synced_count : syncData.length);
-            setSyncError(null);
-            setModelsLoaded(true);
-          } catch {
-            console.error("Backend sync failed");
-            setSyncError('Recognition engine unreachable — live matching is unavailable. Check that the backend is running, then reload.');
-          }
+        if (health) {
+          const ready = !!health.face_model_ready && !!health.vector_db_ready;
+          setModelsLoaded(ready);
+          setSyncedCount(typeof health.embeddings_indexed === 'number' ? health.embeddings_indexed : null);
+          setSyncError(
+            ready
+              ? null
+              : 'Recognition engine or vector index is offline — live matching is unavailable. Check the backend and reload.'
+          );
         } else {
-          setModelsLoaded(true);
+          setSyncError('Recognition engine unreachable — live matching is unavailable. Check that the backend is running, then reload.');
         }
       } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("Failed to initialize system.");
+        console.error('Error loading data:', error);
+        toast.error('Failed to initialize system.');
+        setSyncError(
+          error instanceof ApiError ? error.message : 'Could not load enrolled students from the backend.'
+        );
       }
     };
 
@@ -91,22 +79,11 @@ export default function ClassroomPage() {
 
     try {
       loggedStudentsRef.current.add(student.uid);
-      const full = registeredStudents.find((s) => s.uid === student.uid);
-      const payload = await buildAttendanceRecord(
-        {
-          uid: student.uid,
-          name: student.name,
-          rollNumber: student.rollNo || student.rollNumber || full?.rollNumber || 'N/A',
-          department: full?.department || 'N/A',
-          year: full?.year || 'N/A',
-          semester: full?.semester || 'N/A',
-        },
-        'doorway_batch'
-      );
-      await addDoc(collection(db, 'attendance'), payload);
+      await markAttendance({ studentUid: student.uid, method: 'doorway_batch' });
       toast.success(`Attendance logged for ${student.name}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'attendance');
+      console.error('Attendance error:', error);
+      toast.error(error instanceof Error ? error.message : 'Could not record attendance.');
       loggedStudentsRef.current.delete(student.uid);
     }
   };
