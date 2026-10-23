@@ -1,20 +1,22 @@
 """Authentication + authorization for FastAPI.
 
 - Verifies provider ID tokens with firebase-admin when configured.
-- Controlled by REQUIRE_AUTH (default "false" for local dev, "true" in prod).
+- Controlled by REQUIRE_AUTH; production defaults to enforcing tokens and
+  refuses to run with the development bypass.
 - Resolves the authoritative role from the relational ``users`` table, not from
   token claims (provider claims rarely carry a role and must not be trusted).
-- Camera/service endpoints can use require_camera_caller with PI_SERVICE_KEY.
+- Camera/service endpoints accept either a valid service key or a staff user.
 """
+import hmac
 import os
 
 from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.config import ADMIN_EMAILS
+from app.config import ADMIN_EMAILS, IS_PRODUCTION, PI_SERVICE_KEY, REQUIRE_AUTH
 from app.db import User, get_db
 
-REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "false").lower() == "true"
-PI_SERVICE_KEY = os.getenv("PI_SERVICE_KEY", "")
+STAFF_ROLES = ("admin", "operator")
 
 _admin_init_attempted = False
 _admin_ready = False
@@ -27,7 +29,7 @@ def _ensure_admin():
     _admin_init_attempted = True
     try:
         import firebase_admin
-        from firebase_admin import credentials, auth as admin_auth  # noqa: F401
+        from firebase_admin import credentials  # noqa: F401
 
         cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
         if cred_path and os.path.exists(cred_path):
@@ -45,6 +47,12 @@ def _ensure_admin():
 async def get_current_user(authorization: str | None = Header(default=None)):
     """Return decoded token claims, or a dev placeholder when auth is not required."""
     if not REQUIRE_AUTH:
+        # Fail closed if someone deploys production with the bypass still on.
+        if IS_PRODUCTION:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication is required in production.",
+            )
         return {"uid": "dev", "role": "admin", "dev_bypass": True}
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token.")
@@ -60,17 +68,6 @@ async def get_current_user(authorization: str | None = Header(default=None)):
         return decoded
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token.")
-
-
-def require_role(*allowed: str):
-    async def checker(user=Depends(get_current_user)):
-        role = user.get("role", "student")
-        # Firebase custom claims may carry role; default to student.
-        if allowed and role not in allowed:
-            raise HTTPException(status_code=403, detail="Insufficient role.")
-        return user
-
-    return checker
 
 
 def _claims_identity(claims: dict) -> tuple[str, str | None, str | None]:
@@ -138,8 +135,18 @@ def require_roles(*allowed: str):
 async def require_camera_caller(
     authorization: str | None = Header(default=None),
     x_service_key: str | None = Header(default=None, alias="X-Service-Key"),
+    db: Session = Depends(get_db),
 ):
-    """Allow either a service key (Pi/devices) or a normal authenticated user."""
-    if PI_SERVICE_KEY and x_service_key and x_service_key == PI_SERVICE_KEY:
+    """Allow a valid service key (Pi/devices) or a staff user.
+
+    Regular students must never be able to read the camera stream or ask the
+    matcher to identify people, so camera endpoints are staff-only.
+    """
+    if PI_SERVICE_KEY and x_service_key and hmac.compare_digest(x_service_key, PI_SERVICE_KEY):
         return {"uid": "pi-service", "role": "operator"}
-    return await get_current_user(authorization)
+
+    claims = await get_current_user(authorization)
+    user = resolve_user_row(db, claims)
+    if user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Camera endpoints are staff-only.")
+    return user

@@ -12,8 +12,8 @@ import { motion } from 'motion/react';
 import { getBackendUrl } from '@/lib/utils';
 import { authHeaders, markAttendance } from '@/lib/attendance';
 
-const LIVENESS_FRAMES = 30;
-const FRAME_INTERVAL_MS = 50;
+const LIVENESS_FRAMES = 50;
+const FRAME_INTERVAL_MS = 100;
 
 export default function StudentPage() {
   const { user, loading, signIn } = useAuth();
@@ -30,7 +30,6 @@ export default function StudentPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const webcamRef = useRef<Webcam>(null);
-  const framesRef = useRef<string[]>([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -77,14 +76,27 @@ export default function StudentPage() {
     }
   };
 
-  const captureFrames = useCallback((): Promise<string[]> => {
+  const captureFrames = useCallback((): Promise<{ frames: string[]; intervalMs: number }> => {
     return new Promise((resolve) => {
       const frames: string[] = [];
       let captured = 0;
+      const startedAt = performance.now();
+
+      const finish = () => {
+        const elapsed = performance.now() - startedAt;
+        // Use the interval that actually happened (webcam screenshots and
+        // timers are not exact); the backend band-pass filter needs the true
+        // sample rate for pulse detection.
+        const measured = frames.length > 1 ? elapsed / (frames.length - 1) : FRAME_INTERVAL_MS;
+        resolve({
+          frames,
+          intervalMs: Math.min(1000, Math.max(10, measured)),
+        });
+      };
 
       const capture = () => {
         if (!webcamRef.current) {
-          resolve(frames);
+          finish();
           return;
         }
         const src = webcamRef.current.getScreenshot();
@@ -93,7 +105,7 @@ export default function StudentPage() {
         setCaptureProgress(Math.min(100, Math.round((captured / LIVENESS_FRAMES) * 100)));
 
         if (captured >= LIVENESS_FRAMES) {
-          resolve(frames);
+          finish();
         } else {
           setTimeout(capture, FRAME_INTERVAL_MS);
         }
@@ -119,7 +131,7 @@ export default function StudentPage() {
     setLivenessScore(null);
     setAttendanceState('idle');
 
-    const frames = await captureFrames();
+    const { frames, intervalMs } = await captureFrames();
     setIsCapturingFrames(false);
     setIsVerifying(true);
 
@@ -137,6 +149,7 @@ export default function StudentPage() {
         body: JSON.stringify({
           registered_image_base64: studentData.faceImageBase64,
           frames_base64: frames,
+          frame_interval_ms: Math.round(intervalMs * 10) / 10,
         }),
       });
 
@@ -271,7 +284,7 @@ export default function StudentPage() {
             Identity Verification
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Confirm your identity securely using AI-powered facial recognition with anti-spoofing.
+            Confirm your identity securely using AI-powered facial recognition with liveness checks.
           </p>
         </motion.div>
 

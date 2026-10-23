@@ -37,8 +37,9 @@ Firebase is now **identity only**. Users, roles, students, sessions, attendance,
 | FastAPI auth (`app/auth.py`) | ID-token verification, DB-backed role resolution, service-key gate for cameras | Trust caller-supplied UID or token-claim role |
 | Registry (`routes/registry.py`) | Enrollment, students, attendance, sessions, leave, analytics | Accept attendance without a student row |
 | Recognition (`face_service`) | Image guardrails (8 MB / 4096 px), ArcFace embeddings, cosine-distance matching | Treat detection as identity |
-| Liveness (`liveness_service`) | rPPG pulse + blink + motion scoring over 5–60 frames | Pass a static/repeated frame set as "live" |
-| Database (`db.py`) | Relational schema, unique attendance constraint, audit trail | Store biometric originals |
+| Liveness (`liveness_service`) | rPPG pulse + blink + motion scoring over 5–60 frames, using the client's measured FPS and a Haar face ROI | Pass a static/repeated frame set as "live" |
+| Database (`db.py`) | Relational schema, unique attendance constraints (session-scoped and sessionless/day), audit trail | Store biometric originals |
+| Rate limiter (`rate_limit.py`) | Per-IP sliding window on expensive face/verify routes | Pretend to be a distributed limiter |
 | Vector cache (`vector_service`) | Qdrant embeddings, rebuildable from SQL via `/api/admin/backfill-embeddings` | Act as the source of truth for enrollment |
 | Image store (`image_store`) | Enrollment photos keyed by student id | Expose photos to anyone but the owner |
 | Camera (`camera`) | Explicit lifecycle (`start`/`read`/`stop`), `health()` with `last_error` | Confuse stream visibility with recognition health |
@@ -49,8 +50,8 @@ Firebase is now **identity only**. Users, roles, students, sessions, attendance,
 2. **Guardrails** — size/dimension/decode checks; enrollment requires exactly one detected face.
 3. **Detect + embed** — InsightFace `buffalo_s` via ONNX Runtime (CPU or CUDA), embeddings L2-normalized.
 4. **Match** — cosine distance against Qdrant (`1 - cosine_similarity`), threshold `ARCFACE_THRESHOLD = 0.35`. Float noise is clamped to `0.0`.
-5. **Liveness** (verification flow) — 30 frames analyzed for pulse, blink, motion. A strong pulse (`≥ 0.6`) passes on its own; otherwise the combined score must clear `0.5`. Frames with no temporal colour variation are rejected outright.
-6. **Record** — `POST /api/attendance` writes an idempotent row (unique per student+session, else per day/method). The UI shows *verified* and *recorded* as separate states.
+5. **Liveness** (verification flow) — the frontend captures ~50 frames at ~100 ms intervals and reports the measured interval. The backend derives FPS, crops a Haar-detected face region, and scores pulse, blink, and motion. A strong pulse (`≥ 0.6`) passes on its own; otherwise the combined score must clear `0.5`. Frames with no temporal colour variation are rejected outright.
+6. **Record** — `POST /api/attendance` writes an idempotent row (unique per student+session, else per student+method+day via a partial unique index). The UI shows *verified* and *recorded* as separate states.
 
 ## Data model
 
@@ -59,7 +60,7 @@ Relational (SQLAlchemy, `backend/app/db.py`):
 - `users` — provider subject (`id`), email, display name, authoritative `role` (`admin` | `operator` | `student`).
 - `students` — one row per user (`user_id` unique), roll number (unique), department/year/semester, `face_image_key`.
 - `departments`, `courses`, `class_sessions` — academic structure; attendance can be scoped to a session.
-- `attendance` — student, optional session, timestamp, method, liveness score, distance. Unique `(student_id, session_id)`; indexed history.
+- `attendance` — student, optional session, timestamp, method, liveness score, distance. Unique `(student_id, session_id)` and a partial unique index for sessionless day/method marks; indexed history.
 - `cameras`, `leave_requests`, `audit_log`.
 
 Supporting stores:
@@ -72,9 +73,11 @@ Supporting stores:
 - `backend/app/db.py` — relational schema, engine/session, UTC helpers
 - `backend/app/routes/registry.py` — students, attendance, sessions, leave, analytics
 - `backend/app/auth.py` — token verification, `get_current_user_row`, `require_roles`, `require_camera_caller`
+- `backend/app/rate_limit.py` — per-IP sliding-window limiter for face routes
 - `backend/app/services/face_service.py` — embeddings + `verify_faces`
-- `backend/app/services/liveness_service.py` — rPPG/blink/motion with static-frame guard
+- `backend/app/services/liveness_service.py` — rPPG/blink/motion with static-frame guard, measured-FPS handling, face ROI
 - `backend/app/services/image_store.py` — local object store
-- `backend/tests/` — matching math, registry API, liveness regression
+- `backend/tests/` — matching math, registry API, liveness sampling, security guards
 - `frontend/lib/api.ts` — authenticated backend client
+- `frontend/lib/overlay.ts` — maps detection boxes through `object-fit: contain`
 - `frontend/lib/attendance.ts` — `markAttendance()` + `authHeaders()`

@@ -3,6 +3,7 @@ import cv2
 from scipy import signal
 from scipy.fft import fft, fftfreq
 from app.config import (
+    LIVENESS_FPS_TARGET,
     LIVENESS_FRAME_COUNT,
     LIVENESS_HEARTBEAT_MIN,
     LIVENESS_HEARTBEAT_MAX,
@@ -10,13 +11,24 @@ from app.config import (
     LIVENESS_SCORE_THRESHOLD,
 )
 
+# The pulse band ends at 3 Hz, so sampling below 8 FPS cannot represent it.
+MIN_FPS = 8.0
+MAX_FPS = 60.0
+
 
 class LivenessService:
     def __init__(self):
         self.frame_count = LIVENESS_FRAME_COUNT
-        self.fps_target = 30
+        self.fps_target = LIVENESS_FPS_TARGET
+        self._face_cascade = None
 
-    def detect_liveness(self, frames_bytes):
+    def detect_liveness(self, frames_bytes, fps=None):
+        """Score a short frame burst for signs of a live face.
+
+        ``fps`` should be the *measured* capture rate. Mobile/webcam captures
+        rarely hit a nominal interval exactly, and rPPG is sensitive to the
+        sample rate, so the caller passes the observed interval.
+        """
         if len(frames_bytes) < 10:
             return {"live": False, "score": 0.0, "reason": "Not enough frames"}
 
@@ -24,7 +36,13 @@ class LivenessService:
         if len(frames) < 10:
             return {"live": False, "score": 0.0, "reason": "Could not decode enough frames"}
 
-        rppg_score = self._compute_rppg(frames)
+        try:
+            effective_fps = float(fps) if fps else float(self.fps_target)
+        except (TypeError, ValueError):
+            effective_fps = float(self.fps_target)
+        effective_fps = max(MIN_FPS, min(MAX_FPS, effective_fps))
+
+        rppg_score = self._compute_rppg(frames, effective_fps)
         blink_score = self._detect_blinks(frames)
         motion_score = self._detect_motion(frames)
 
@@ -39,6 +57,7 @@ class LivenessService:
             "rppg_score": float(round(rppg_score, 3)),
             "blink_score": float(round(blink_score, 3)),
             "motion_score": float(round(motion_score, 3)),
+            "fps": float(round(effective_fps, 1)),
         }
 
     def _decode_frames(self, frames_bytes):
@@ -53,29 +72,68 @@ class LivenessService:
                 continue
         return frames
 
-    def _compute_rppg(self, frames):
+    def _get_face_cascade(self):
+        if self._face_cascade is None:
+            self._face_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            )
+        return self._face_cascade
+
+    def _face_roi(self, frames):
+        """Locate a stable skin region from the middle frame.
+
+        Sampling a face-sized region rather than the whole centre crop keeps
+        background motion and lighting changes out of the colour signal.
+        """
         try:
+            frame = frames[len(frames) // 2]
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self._get_face_cascade().detectMultiScale(gray, 1.1, 4)
+            if len(faces) == 0:
+                return None
+            x, y, w, h = max(faces, key=lambda rect: rect[2] * rect[3])
+            # Cheeks/forehead band, inset from the detected box.
+            x1 = max(0, int(x + 0.15 * w))
+            x2 = int(x + 0.85 * w)
+            y1 = max(0, int(y + 0.30 * h))
+            y2 = int(y + 0.85 * h)
+            if x2 - x1 < 16 or y2 - y1 < 16:
+                return None
+            return x1, y1, x2, y2
+        except Exception:
+            return None
+
+    def _compute_rppg(self, frames, fps):
+        try:
+            roi = self._face_roi(frames)
             skin_signals = []
             for frame in frames:
                 h, w = frame.shape[:2]
-                center_crop = frame[h//4:3*h//4, w//4:3*w//4]
-                skin_signal = self._extract_skin_signal(center_crop)
-                skin_signals.append(skin_signal)
+                if roi is not None:
+                    x1, y1, x2, y2 = roi
+                    crop = frame[y1:min(y2, h), x1:min(x2, w)]
+                else:
+                    crop = frame[h // 4: 3 * h // 4, w // 4: 3 * w // 4]
+                if crop.size == 0:
+                    continue
+                skin_signals.append(self._extract_skin_signal(crop))
             skin_signals = np.array(skin_signals)
+            if skin_signals.size == 0:
+                return 0.0
             # A static image (printed photo, paused/looped video) has no
             # temporal colour variation. Without this guard, floating-point
             # noise gets normalised and the FFT falsely reports a pulse.
             # Measure variation over time *per channel* (channel means differ
             # from each other, so a global std would be misleading).
-            if skin_signals.size == 0 or float(np.std(skin_signals, axis=0).max()) < 0.05:
+            if float(np.std(skin_signals, axis=0).max()) < 0.05:
                 return 0.0
             skin_signals = self._detrend(skin_signals)
             if skin_signals.size < 10:
                 return 0.0
-            bvp = self._pos_algorithm(skin_signals)
+            bvp = self._pos_algorithm(skin_signals, fps)
             if bvp is None or len(bvp) < 4:
                 return 0.0
-            peak_power = self._compute_peak_power(bvp)
+            peak_power = self._compute_peak_power(bvp, fps)
             return min(1.0, peak_power * 2.0)
         except Exception as e:
             print(f"rPPG error: {e}")
@@ -98,7 +156,7 @@ class LivenessService:
         trend = np.linalg.inv(I + lamb * D2.T @ D2) @ signals
         return signals - trend
 
-    def _pos_algorithm(self, skin_signals):
+    def _pos_algorithm(self, skin_signals, fps):
         T = skin_signals.shape[0]
         if T < 10:
             return None
@@ -109,18 +167,24 @@ class LivenessService:
         projection = projection - np.mean(projection)
         if np.std(projection) > 0:
             projection = projection / np.std(projection)
-        sos = signal.butter(4, [0.8, 3.0], btype='band', fs=self.fps_target, output='sos')
+        sos = signal.butter(
+            4,
+            [LIVENESS_HEARTBEAT_MIN, LIVENESS_HEARTBEAT_MAX],
+            btype="band",
+            fs=fps,
+            output="sos",
+        )
         filtered = signal.sosfilt(sos, projection)
         return filtered
 
-    def _compute_peak_power(self, bvp):
+    def _compute_peak_power(self, bvp, fps):
         n = len(bvp)
         if n < 10:
             return 0.0
         if float(np.std(bvp)) < 1e-9:
             return 0.0
         yf = fft(bvp)
-        xf = fftfreq(n, 1.0 / self.fps_target)
+        xf = fftfreq(n, 1.0 / fps)
         pos_mask = xf > 0
         xf = xf[pos_mask]
         yf = np.abs(yf[pos_mask])

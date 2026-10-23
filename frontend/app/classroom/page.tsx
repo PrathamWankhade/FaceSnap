@@ -2,13 +2,15 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
+import Link from 'next/link';
 import { Camera, Users, Upload, CheckCircle2, AlertCircle, Loader2, Play, Square, Scan, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { api, ApiError } from '@/lib/api';
-import type { StudentData, DetectWebcamResponse, WebcamUIDetection } from '@/lib/types';
+import type { StudentData, DetectWebcamResponse, FaceMatch, WebcamUIDetection } from '@/lib/types';
 import { getBackendUrl } from '@/lib/utils';
 import { authHeaders, markAttendance } from '@/lib/attendance';
+import { fitFrame } from '@/lib/overlay';
 import { motion } from 'motion/react';
 
 export default function ClassroomPage() {
@@ -73,7 +75,7 @@ export default function ClassroomPage() {
     };
   }, []);
 
-  const logAttendance = async (student: { uid: string; name: string; rollNo?: string; rollNumber?: string }) => {
+  const logAttendance = useCallback(async (student: { uid: string; name: string; rollNo?: string; rollNumber?: string }) => {
     if (!student.uid) return;
     if (loggedStudentsRef.current.has(student.uid)) return;
 
@@ -86,121 +88,157 @@ export default function ClassroomPage() {
       toast.error(error instanceof Error ? error.message : 'Could not record attendance.');
       loggedStudentsRef.current.delete(student.uid);
     }
-  };
+  }, []);
 
-  const handleVideoOnPlay = useCallback(() => {
-    if (!modelsLoaded || !webcamRef.current?.video || !canvasRef.current) return;
-
-    const video = webcamRef.current.video;
+  const clearOverlay = useCallback(() => {
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    if (video.videoWidth > 0 && video.videoHeight > 0) {
-      const parent = canvas.parentElement;
-      if (parent) {
-        parent.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-      }
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  /**
+   * Draw in CSS pixels using the same `object-fit: contain` transform the
+   * browser applies to the <video>. Sizing the canvas bitmap to the camera
+   * resolution and letting CSS stretch it (the previous behaviour) made boxes
+   * drift off the face whenever the camera was not exactly 16:9.
+   */
+  const drawOverlay = useCallback((
+    boxes: Array<{ box: [number, number, number, number]; student: FaceMatch | null }>,
+    frameWidth: number,
+    frameHeight: number
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelWidth = Math.round(rect.width * dpr);
+    const pixelHeight = Math.round(rect.height * dpr);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
     }
 
-    detectionIntervalRef.current = setInterval(async () => {
-      if (!isLiveStreamActive) return;
-      if (inFlightRef.current) return;
-      inFlightRef.current = true;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
 
-      const imageSrc = webcamRef.current?.getScreenshot();
-      if (!imageSrc) { inFlightRef.current = false; return; }
+    const { scale, offsetX, offsetY } = fitFrame(frameWidth, frameHeight, rect.width, rect.height, 'contain');
 
-      try {
-        const headers = await authHeaders();
-        const response = await fetch(getBackendUrl('/api/detect_webcam'), {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ image_base64: imageSrc })
+    boxes.forEach(({ box, student }) => {
+      const [x, y, w, h] = box;
+      const strokeX = offsetX + x * scale;
+      const strokeY = offsetY + y * scale;
+      const strokeW = w * scale;
+      const strokeH = h * scale;
+
+      ctx.shadowColor = student ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.5)';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = student ? '#10b981' : '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(strokeX, strokeY, strokeW, strokeH);
+      ctx.shadowBlur = 0;
+
+      const label = student ? student.name : 'Unknown · review';
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      const textWidth = ctx.measureText(label).width;
+      const labelH = 28;
+      const labelY = strokeY - labelH > 0 ? strokeY - labelH : strokeY + strokeH;
+
+      ctx.fillStyle = student ? '#10b981' : '#f59e0b';
+      ctx.beginPath();
+      ctx.roundRect(strokeX, labelY, textWidth + 16, labelH, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, strokeX + 8, labelY + 19);
+    });
+  }, []);
+
+  const runDetection = useCallback(async () => {
+    if (inFlightRef.current) return;
+
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (!imageSrc) return;
+
+    inFlightRef.current = true;
+    try {
+      const headers = await authHeaders();
+      const response = await fetch(getBackendUrl('/api/detect_webcam'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ image_base64: imageSrc })
+      });
+
+      if (!response.ok) throw new Error(`Detection failed (${response.status})`);
+
+      const data: DetectWebcamResponse = await response.json();
+      const currentDetections: WebcamUIDetection[] = [];
+      const newBoxes = new Map<number, { x: number; y: number; w: number; h: number }>();
+      const overlayBoxes: Array<{ box: [number, number, number, number]; student: FaceMatch | null }> = [];
+      const alpha = 0.4;
+
+      data.face_data.forEach((face, i) => {
+        const [rawX, rawY, rawW, rawH] = face.box;
+        const prev = prevBoxesRef.current.get(i);
+
+        const x = prev ? Math.round(prev.x + alpha * (rawX - prev.x)) : rawX;
+        const y = prev ? Math.round(prev.y + alpha * (rawY - prev.y)) : rawY;
+        const w = prev ? Math.round(prev.w + alpha * (rawW - prev.w)) : rawW;
+        const h = prev ? Math.round(prev.h + alpha * (rawH - prev.h)) : rawH;
+
+        newBoxes.set(i, { x, y, w, h });
+        currentDetections.push({
+          box: { x, y, width: w, height: h },
+          isRecognized: !!face.match,
+          student: face.match
         });
+        overlayBoxes.push({ box: [x, y, w, h], student: face.match });
 
-        if (!response.ok) throw new Error("Detection failed");
-
-        const data: DetectWebcamResponse = await response.json();
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (face.match) {
+          void logAttendance(face.match);
         }
+      });
 
-        const currentDetections: WebcamUIDetection[] = [];
-        const newBoxes = new Map<number, { x: number; y: number; w: number; h: number }>();
-        const alpha = 0.4;
+      prevBoxesRef.current = newBoxes;
+      setDetectedFaces(currentDetections);
+      drawOverlay(overlayBoxes, data.frame_width, data.frame_height);
+    } catch {
+      prevBoxesRef.current.clear();
+      clearOverlay();
+      setDetectedFaces([]);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [clearOverlay, drawOverlay, logAttendance]);
 
-        if (data.faces_detected > 0) {
-          for (let i = 0; i < data.face_data.length; i++) {
-            const face = data.face_data[i];
-            const [rawX, rawY, rawW, rawH] = face.box;
-            const student = face.match;
-            const prev = prevBoxesRef.current.get(i);
+  // Start/stop the polling loop from state, not from the <video> onPlay event.
+  // onPlay fires once, often before models finish loading, so the old loop
+  // could silently never start (or run with a stale "inactive" flag).
+  useEffect(() => {
+    if (!isLiveStreamActive || !modelsLoaded) return;
 
-            const x = prev ? Math.round(prev.x + alpha * (rawX - prev.x)) : rawX;
-            const y = prev ? Math.round(prev.y + alpha * (rawY - prev.y)) : rawY;
-            const w = prev ? Math.round(prev.w + alpha * (rawW - prev.w)) : rawW;
-            const h = prev ? Math.round(prev.h + alpha * (rawH - prev.h)) : rawH;
+    void runDetection();
+    const id = setInterval(() => { void runDetection(); }, 1000);
+    detectionIntervalRef.current = id;
 
-            newBoxes.set(i, { x, y, w, h });
-
-            currentDetections.push({
-              box: { x, y, width: w, height: h },
-              isRecognized: !!student,
-              student
-            });
-
-            if (student) {
-              logAttendance(student);
-            }
-
-            if (ctx) {
-              ctx.shadowColor = student ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.5)';
-              ctx.shadowBlur = 12;
-              ctx.strokeStyle = student ? '#10b981' : '#f59e0b';
-              ctx.lineWidth = 3;
-              ctx.strokeRect(x, y, w, h);
-              ctx.shadowBlur = 0;
-
-              const label = student ? student.name : 'Unknown · review';
-              ctx.font = 'bold 14px system-ui, sans-serif';
-              const textWidth = ctx.measureText(label).width;
-              const labelH = 28;
-              const labelY = y - labelH > 0 ? y - labelH : y + h;
-
-              ctx.fillStyle = student ? '#10b981' : '#f59e0b';
-              ctx.beginPath();
-              ctx.roundRect(x, labelY, textWidth + 16, labelH, 6);
-              ctx.fill();
-
-              ctx.fillStyle = '#ffffff';
-              ctx.fillText(label, x + 8, labelY + 19);
-            }
-          }
-        }
-
-        prevBoxesRef.current = newBoxes;
-        setDetectedFaces(currentDetections);
-      } catch {
-        console.error("Detection error");
-      } finally {
-        inFlightRef.current = false;
-      }
-    }, 1000);
-  }, [modelsLoaded, isLiveStreamActive]);
+    return () => {
+      clearInterval(id);
+      detectionIntervalRef.current = null;
+    };
+  }, [isLiveStreamActive, modelsLoaded, runDetection]);
 
   const toggleLiveStream = () => {
     if (isLiveStreamActive) {
       setIsLiveStreamActive(false);
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
       setDetectedFaces([]);
       loggedStudentsRef.current.clear();
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-      }
+      prevBoxesRef.current.clear();
+      clearOverlay();
     } else {
       setIsLiveStreamActive(true);
     }
@@ -348,6 +386,18 @@ export default function ClassroomPage() {
             <p>{syncError}</p>
           </div>
         )}
+        {!syncError && registeredStudents.length === 0 && (
+          <div className="max-w-4xl mx-auto mb-8 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 p-3 rounded-xl border border-amber-100 dark:border-amber-900">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>
+              No students are enrolled yet, so every detected face will show as &ldquo;Unknown&rdquo;.{' '}
+              <Link href="/register" className="font-bold underline underline-offset-2">
+                Register a face
+              </Link>{' '}
+              to enable matching.
+            </p>
+          </div>
+        )}
 
         <div className="flex p-1.5 bg-slate-200/50 dark:bg-slate-800/60 backdrop-blur-sm rounded-full mb-10 max-w-md mx-auto shadow-inner">
           <button
@@ -404,8 +454,7 @@ export default function ClassroomPage() {
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     videoConstraints={{ facingMode: "user" }}
-                    className="absolute inset-0 w-full h-full"
-                    onPlay={handleVideoOnPlay}
+                    className="absolute inset-0 w-full h-full object-contain"
                   />
                   <canvas
                     ref={canvasRef}

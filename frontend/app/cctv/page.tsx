@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import type { StudentData, CCTVDetectResponse, CCTVProcessedFace } from '@/lib/types';
 import { getBackendUrl } from '@/lib/utils';
 import { authHeaders, markAttendance } from '@/lib/attendance';
+import { fitFrame } from '@/lib/overlay';
 
 type PipelineState = 'idle' | 'live' | 'paused';
 
@@ -29,11 +30,26 @@ export default function CCTVPage() {
   const loggedStudentsRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef(false);
   const registeredRef = useRef<StudentData[]>([]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     registeredRef.current = registeredStudents;
   }, [registeredStudents]);
+
+  // Boxes are drawn in frame coordinates; measure the stage so they can be
+  // mapped into the letterboxed video area instead of the whole panel.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setStageSize({ width, height });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -170,7 +186,7 @@ export default function CCTVPage() {
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 max-w-md w-full text-center">
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Access Denied</h2>
-          <p className="text-slate-600 dark:text-slate-300">You must be logged in to access the CCTV monitoring dashboard.</p>
+          <p className="text-slate-600 dark:text-slate-300">You must be logged in to access the Camera monitoring dashboard.</p>
         </div>
       </div>
     );
@@ -182,7 +198,7 @@ export default function CCTVPage() {
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 max-w-md w-full text-center">
           <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Staff Only</h2>
-          <p className="text-slate-600 dark:text-slate-300">CCTV monitoring is available to staff accounts. Students can use Verify and Records.</p>
+          <p className="text-slate-600 dark:text-slate-300">Camera monitoring is available to staff accounts. Students can use Verify and Records.</p>
         </div>
       </div>
     );
@@ -218,7 +234,7 @@ export default function CCTVPage() {
           >
             <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white flex items-center gap-3">
               <Video className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-              Live CCTV Monitoring
+              Live Camera Monitoring
             </h1>
             <p className="text-slate-600 dark:text-slate-300 mt-1">Only backend-verified matches create attendance. Unknown faces go to review.</p>
           </motion.div>
@@ -319,6 +335,7 @@ export default function CCTVPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <motion.div
+            ref={stageRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="lg:col-span-2 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl border-4 border-slate-800 dark:border-slate-700 relative aspect-video flex items-center justify-center"
@@ -326,8 +343,8 @@ export default function CCTVPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={streamUrl}
-              alt="Live CCTV Stream"
-              className="w-full h-full object-cover bg-black"
+              alt="Live camera stream"
+              className="w-full h-full object-contain bg-black"
               onError={(e) => {
                 const img = e.target as HTMLImageElement;
                 img.style.display = 'none';
@@ -360,10 +377,19 @@ export default function CCTVPage() {
 
             {detectedFaces.map((face, idx) => {
               const [x, y, w, h] = face.box;
-              const left = `${(x / face.frame_width) * 100}%`;
-              const top = `${(y / face.frame_height) * 100}%`;
-              const width = `${(w / face.frame_width) * 100}%`;
-              const height = `${(h / face.frame_height) * 100}%`;
+              const { scale, offsetX, offsetY } = fitFrame(
+                face.frame_width,
+                face.frame_height,
+                stageSize.width,
+                stageSize.height,
+                'contain'
+              );
+              if (!scale) return null;
+
+              const left = offsetX + x * scale;
+              const top = offsetY + y * scale;
+              const width = w * scale;
+              const height = h * scale;
               const student = face.student;
               const isRecognized = !!student;
 

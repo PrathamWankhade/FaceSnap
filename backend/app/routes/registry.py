@@ -378,12 +378,25 @@ def mark_attendance(
         db.commit()
     except IntegrityError:
         db.rollback()
-        again = db.scalar(
-            select(Attendance).where(
-                Attendance.student_id == student.id,
-                Attendance.session_id == session.id if session else None,
+        # Another request committed the same mark between our check and insert
+        # (the partial unique index is the real guard). Return the winner.
+        if session is not None:
+            again = db.scalar(
+                select(Attendance).where(
+                    Attendance.student_id == student.id,
+                    Attendance.session_id == session.id,
+                )
             )
-        )
+        else:
+            start, end = _day_bounds(captured_at)
+            again = db.scalar(
+                select(Attendance).where(
+                    Attendance.student_id == student.id,
+                    Attendance.method == payload.method,
+                    Attendance.captured_at >= start,
+                    Attendance.captured_at < end,
+                )
+            )
         if again is None:
             raise HTTPException(status_code=409, detail="Attendance already recorded.")
         return {"record": attendance_dict(again), "duplicate": True}

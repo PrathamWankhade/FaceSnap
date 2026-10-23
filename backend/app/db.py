@@ -15,7 +15,6 @@ Design notes
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -28,10 +27,11 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./facesnap.db")
+from app.config import DATABASE_URL
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
@@ -187,8 +187,34 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
+def _ensure_daily_unique_index() -> None:
+    """Enforce one sessionless mark per student/method/day in the database.
+
+    The application checks first for a friendly ``duplicate: true`` response,
+    but two concurrent scans can both pass that check. A partial unique index
+    closes the race. The expression and partial-index syntax below work on both
+    SQLite and Postgres.
+    """
+    statement = text(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_daily
+        ON attendance (student_id, method, date(captured_at))
+        WHERE session_id IS NULL
+        """
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(statement)
+    except Exception as exc:  # pragma: no cover - depends on existing data
+        print(
+            "WARNING: could not create uq_attendance_daily "
+            f"({exc}). Resolve duplicate same-day attendance rows and restart."
+        )
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_daily_unique_index()
 
 
 def get_db():

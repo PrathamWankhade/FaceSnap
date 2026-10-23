@@ -6,6 +6,7 @@ import { Camera, CheckCircle2, RefreshCw, AlertCircle, LogIn, UserPlus, Loader2 
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { motion } from 'motion/react';
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 
 export default function RegisterPage() {
@@ -369,18 +370,18 @@ export default function RegisterPage() {
                 Your facial profile has been securely enrolled. You can now use FaceSnap for seamless identity verification.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
+                <Link
                   href="/student"
                   className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full font-bold hover:from-indigo-700 hover:to-blue-700 transition-all shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 inline-block"
                 >
                   Go to Verification
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/"
                   className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm hover:-translate-y-0.5 inline-block"
                 >
                   Return Home
-                </a>
+                </Link>
               </div>
             </div>
           )}

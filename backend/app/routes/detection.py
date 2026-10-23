@@ -4,13 +4,21 @@ from app.services.vector_service import vector_service
 from app.models.schemas import SyncRequest, SyncResponse, DetectWebcamRequest
 from app.models.schemas import DetectWebcamResponse
 from app.config import ARCFACE_THRESHOLD
-from app.auth import get_current_user, require_roles
+from app.auth import require_roles
+from app.rate_limit import rate_limit_face
 
 router = APIRouter()
 
+STAFF = ("admin", "operator")
+
+
+# Handlers are declared with ``def`` (not ``async def``) on purpose: face
+# decoding and model inference are blocking CPU work, so FastAPI runs them in
+# its threadpool instead of blocking the event loop.
+
 
 @router.post("/api/sync", response_model=SyncResponse)
-async def sync_students(request: SyncRequest, user=Depends(require_roles("admin", "operator"))):
+def sync_students(request: SyncRequest, user=Depends(require_roles(*STAFF))):
     if not face_service.is_ready:
         raise HTTPException(status_code=503, detail="Face recognition model not loaded.")
     if len(request.students) > 500:
@@ -39,7 +47,11 @@ async def sync_students(request: SyncRequest, user=Depends(require_roles("admin"
 
 
 @router.post("/api/detect_webcam", response_model=DetectWebcamResponse)
-async def detect_webcam(request: DetectWebcamRequest, user=Depends(get_current_user)):
+def detect_webcam(
+    request: DetectWebcamRequest,
+    user=Depends(require_roles(*STAFF)),
+    _rate=Depends(rate_limit_face),
+):
     if not face_service.is_ready:
         raise HTTPException(status_code=503, detail="Face recognition model not loaded.")
     try:

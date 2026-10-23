@@ -68,7 +68,7 @@ export default function AboutPage() {
             <div className="bg-white/10 backdrop-blur-lg rounded-[2rem] p-8 border border-white/20 hover:bg-white/20 transition-colors">
               <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6"><Cpu className="w-7 h-7 text-white" /></div>
               <h3 className="text-2xl font-bold mb-4">InsightFace ArcFace</h3>
-              <p className="text-indigo-100 leading-relaxed">Face detection plus 512-dim ArcFace embeddings running on ONNX Runtime, with liveness anti-spoofing.</p>
+              <p className="text-indigo-100 leading-relaxed">Face detection plus 512-dim ArcFace embeddings running on ONNX Runtime, with multi-signal liveness checks.</p>
             </div>
             <div className="bg-white/10 backdrop-blur-lg rounded-[2rem] p-8 border border-white/20 hover:bg-white/20 transition-colors">
               <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6"><Database className="w-7 h-7 text-white" /></div>
@@ -78,7 +78,7 @@ export default function AboutPage() {
             <div className="bg-white/10 backdrop-blur-lg rounded-[2rem] p-8 border border-white/20 hover:bg-white/20 transition-colors">
               <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6"><Server className="w-7 h-7 text-white" /></div>
               <h3 className="text-2xl font-bold mb-4">Scalable Infrastructure</h3>
-              <p className="text-indigo-100 leading-relaxed">Built on Next.js and Firebase, designed for reliable classroom-scale attendance — dozens of students per session.</p>
+              <p className="text-indigo-100 leading-relaxed">Built on Next.js, FastAPI, and Firebase Auth, designed for reliable classroom-scale attendance — dozens of students per session.</p>
             </div>
           </div>
         </div>

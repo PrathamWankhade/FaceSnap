@@ -172,7 +172,7 @@ function LoggedInDashboard({ user }: { user: User }) {
             href="/student"
             icon={<Scan className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />}
             title="Verify Identity"
-            description="Complete a live scan with liveness anti-spoofing to verify your identity."
+            description="Complete a live scan with liveness checks to verify your identity."
             iconBg="bg-emerald-100 dark:bg-emerald-950/70"
             delay={0.2}
           />
@@ -201,8 +201,8 @@ function LoggedInDashboard({ user }: { user: User }) {
               <DashboardCard
                 href="/cctv"
                 icon={<Camera className="w-7 h-7 text-violet-600 dark:text-violet-400" />}
-                title="CCTV Monitoring"
-                description="Monitor camera streams with backend face matching and review detections."
+                title="Camera Monitoring"
+                description="Monitor a camera stream with backend face matching and review detections."
                 iconBg="bg-violet-100 dark:bg-violet-950/70"
                 delay={0.2}
               />
@@ -252,8 +252,8 @@ function DashboardCard({ href, icon, title, description, iconBg, delay }: Dashbo
 
 const CAPABILITIES = [
   { icon: Fingerprint, title: 'ArcFace recognition', text: '512-dimensional embeddings matched by cosine distance.' },
-  { icon: ShieldCheck, title: 'Liveness anti-spoofing', text: 'Multi-frame checks resist photo and replay attacks.' },
-  { icon: MonitorPlay, title: 'Batch & CCTV modes', text: 'Doorway, group-photo, and camera-stream capture.' },
+  { icon: ShieldCheck, title: 'Liveness checks', text: 'Multi-frame pulse, blink, and motion signals raise the bar against simple photo/replay attacks.' },
+  { icon: MonitorPlay, title: 'Batch & camera modes', text: 'Doorway, group-photo, and camera-stream capture.' },
   { icon: Database, title: 'Auditable records', text: 'Canonical attendance events with method and session.' },
 ];
 
@@ -397,8 +397,8 @@ function LoggedOutHero() {
                     <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900 dark:text-white">Secure Storage</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Firebase Firestore Integration</p>
+                    <p className="font-bold text-slate-900 dark:text-white">SQL System of Record</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Relational records + rebuildable vector index</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-5 p-5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
@@ -416,7 +416,7 @@ function LoggedOutHero() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 dark:text-white">Privacy First</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Consent, retention, and deletion controls</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Consent and deletion controls</p>
                   </div>
                 </div>
               </div>

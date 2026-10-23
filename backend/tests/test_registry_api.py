@@ -223,3 +223,53 @@ def test_delete_student_removes_profile(client):
     assert deleted.status_code == 200
     assert client.get("/api/students").json()["total"] == 0
     assert client.get("/api/students/me").status_code == 404
+
+
+def test_camera_detection_is_staff_only(client):
+    from app.auth import get_current_user
+    from app.main import app
+
+    app.dependency_overrides[get_current_user] = lambda: {
+        "uid": "student-user",
+        "role": "student",
+    }
+    try:
+        res = client.post("/api/detect_webcam", json={"image_base64": "x" * 200})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert res.status_code == 403
+    assert "role" in res.json()["detail"].lower()
+
+
+def test_daily_attendance_index_exists(client):
+    from sqlalchemy import text
+
+    with engine.connect() as connection:
+        indexes = {
+            row[0]
+            for row in connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type='index'")
+            )
+        }
+    assert "uq_attendance_daily" in indexes
+
+
+def test_daily_attendance_index_blocks_concurrent_duplicates(client):
+    """The DB index, not just the application check, enforces dedupe."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.db import Attendance, SessionLocal, Student
+
+    assert enroll(client).status_code == 200
+
+    with SessionLocal() as db:
+        student = db.query(Student).first()
+        assert student is not None
+        db.add(Attendance(student_id=student.id, method="individual_live"))
+        db.commit()
+
+        db.add(Attendance(student_id=student.id, method="individual_live"))
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()

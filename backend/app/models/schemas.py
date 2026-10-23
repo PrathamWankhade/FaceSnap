@@ -30,6 +30,10 @@ class VerifyRequest(BaseModel):
 class LivenessVerifyRequest(BaseModel):
     registered_image_base64: str = Field(min_length=100, max_length=12_000_000)
     frames_base64: List[str] = Field(min_length=5, max_length=60)
+    # Measured milliseconds between captured frames. The client sends the real
+    # elapsed interval so the rPPG band-pass filter uses the true sample rate
+    # instead of assuming a hard-coded frame rate.
+    frame_interval_ms: float = Field(default=100.0, ge=10.0, le=1000.0)
 
 
 class VerifyResponse(BaseModel):

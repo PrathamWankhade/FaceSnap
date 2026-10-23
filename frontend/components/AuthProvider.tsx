@@ -7,8 +7,7 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { auth, googleProvider, db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth, googleProvider } from '../lib/firebase';
 import { getBackendUrl } from '../lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -58,21 +57,8 @@ async function ensureUserProfile(currentUser: User): Promise<UserRole> {
       return me.role === 'admin' || me.role === 'operator' ? 'admin' : 'student';
     }
   } catch {
-    // Backend unreachable — fall through to the legacy profile read.
+    // Backend unreachable: fail closed to the least-privileged role.
   }
-
-  if (db) {
-    try {
-      const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
-      if (userSnap.exists()) {
-        const data = userSnap.data() as { role?: unknown };
-        return data.role === 'admin' ? 'admin' : 'student';
-      }
-    } catch {
-      // Firestore disabled or rules block the read.
-    }
-  }
-
   return 'student';
 }
 
