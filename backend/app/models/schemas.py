@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
 
 class StudentSync(BaseModel):
@@ -10,7 +10,7 @@ class StudentSync(BaseModel):
 
 
 class SyncRequest(BaseModel):
-    students: List[StudentSync] = Field(min_length=1, max_length=500)
+    students: list[StudentSync] = Field(min_length=1, max_length=500)
 
 
 class SyncResponse(BaseModel):
@@ -29,7 +29,7 @@ class VerifyRequest(BaseModel):
 
 class LivenessVerifyRequest(BaseModel):
     registered_image_base64: str = Field(min_length=100, max_length=12_000_000)
-    frames_base64: List[str] = Field(min_length=5, max_length=60)
+    frames_base64: list[str] = Field(min_length=5, max_length=60)
     # Measured milliseconds between captured frames. The client sends the real
     # elapsed interval so the rPPG band-pass filter uses the true sample rate
     # instead of assuming a hard-coded frame rate.
@@ -41,7 +41,7 @@ class VerifyResponse(BaseModel):
     confidence: float
     reason: str
     distance: float
-    liveness: Optional[dict] = None
+    liveness: dict | None = None
 
 
 class DetectWebcamResponse(BaseModel):

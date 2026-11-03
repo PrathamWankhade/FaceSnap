@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.services.face_service import face_service, MAX_IMAGE_BYTES
-from app.services.vector_service import vector_service
-from app.services.liveness_service import liveness_service
-from app.models.schemas import VerifyRequest, LivenessVerifyRequest, VerifyResponse
+
 from app.auth import get_current_user, require_roles
+from app.models.schemas import LivenessVerifyRequest, VerifyRequest, VerifyResponse
 from app.rate_limit import rate_limit_face
+from app.services.face_service import MAX_IMAGE_BYTES, face_service
+from app.services.liveness_service import liveness_service
 
 router = APIRouter()
 

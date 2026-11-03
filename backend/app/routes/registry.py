@@ -6,7 +6,7 @@ All writes go through FastAPI so the database stays the single source of truth
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,7 +22,6 @@ from app.db import (
     Camera,
     ClassSession,
     Course,
-    Department,
     LeaveRequest,
     Student,
     User,

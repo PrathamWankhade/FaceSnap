@@ -53,12 +53,9 @@ def test_operators_can_use_staff_only_routes():
 
 def test_valid_service_key_grants_camera_access(monkeypatch):
     monkeypatch.setattr(auth_module, "PI_SERVICE_KEY", "test-service-key")
+    # Service-key path returns before resolving claims/db.
     result = asyncio.run(
-        require_camera_caller(
-            authorization=None,
-            x_service_key="test-service-key",
-            db=None,
-        )
+        require_camera_caller(x_service_key="test-service-key")
     )
     assert result["uid"] == "pi-service"
 

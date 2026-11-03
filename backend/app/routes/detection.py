@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.services.face_service import face_service, MAX_IMAGE_BYTES
-from app.services.vector_service import vector_service
-from app.models.schemas import SyncRequest, SyncResponse, DetectWebcamRequest
-from app.models.schemas import DetectWebcamResponse
-from app.config import ARCFACE_THRESHOLD
+
 from app.auth import require_roles
+from app.config import ARCFACE_THRESHOLD
+from app.models.schemas import (
+    DetectWebcamRequest,
+    DetectWebcamResponse,
+    SyncRequest,
+    SyncResponse,
+)
 from app.rate_limit import rate_limit_face
+from app.services.face_service import MAX_IMAGE_BYTES, face_service
+from app.services.vector_service import vector_service
 
 router = APIRouter()
 
@@ -61,8 +66,8 @@ def detect_webcam(
     if len(image_bytes) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image too large (max 8MB).")
 
-    import numpy as np
     import cv2
+    import numpy as np
 
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)

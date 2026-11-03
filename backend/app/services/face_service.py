@@ -1,6 +1,8 @@
 import os
-import numpy as np
+
 import cv2
+import numpy as np
+
 from app.config import ARCFACE_THRESHOLD, DETECTION_CONFIDENCE, EMBEDDING_DIM
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
@@ -14,7 +16,6 @@ class FaceService:
 
     def _load_model(self):
         try:
-            import insightface
             from insightface.app import FaceAnalysis
             self.app = FaceAnalysis(name='buffalo_s', root=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.insightface'))
             self.app.prepare(ctx_id=0 if self._has_gpu() else -1, det_thresh=DETECTION_CONFIDENCE)

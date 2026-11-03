@@ -63,7 +63,7 @@ python -m venv .venv
 .venv\Scripts\activate      # Windows
 source .venv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
-
+python -m alembic upgrade head   # ensure schema migrations are applied (dev default)
 # 3. Environment
 #    Frontend: copy frontend/.env.example -> frontend/.env.local
 #    Backend:  copy backend/.env.example  -> backend/.env
@@ -187,7 +187,8 @@ The UI ships in **light and dark themes** (toggle in the nav, persisted per devi
 - Recognition accuracy depends on enrollment photo quality, lighting, and camera placement. No LFW/benchmark number is claimed for this deployment.
 - `/cctv` consumes a single camera stream (Pi or webcam); it is **not** an RTSP/CCTV fleet integration. With auth enabled, the browser's `<img>` stream cannot attach a bearer header — use a trusted proxy or the authenticated capture/detect endpoints.
 - SQLite is for local development. Multi-worker production requires Postgres and a shared rate-limit store.
-- There is no retention-expiry job and no schema-migration tool (Alembic) yet — `init_db()` creates tables, and the partial index is added idempotently on startup.
+- There is no retention-expiry job for attendance or biometric data — retention is a
+  policy decision the institution must make before storing real student data.
 - The in-process rate limiter and Qdrant local mode are single-node conveniences.
 
 ## Testing & CI

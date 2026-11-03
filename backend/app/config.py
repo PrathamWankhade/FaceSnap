@@ -81,3 +81,11 @@ LIVENESS_SCORE_THRESHOLD = 0.5
 # face; without this, users who sit still and do not blink in the capture
 # window are rejected even when a pulse is present.
 LIVENESS_RPPG_PASS = float(os.getenv("LIVENESS_RPPG_PASS", "0.6"))
+
+# Logging
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_FORMAT = os.getenv("LOG_FORMAT", "json" if IS_PRODUCTION else "text")
+
+# Health timeouts (seconds). Dependencies slower than this count as unhealthy.
+HEALTH_DB_TIMEOUT = float(os.getenv("HEALTH_DB_TIMEOUT", "2.0"))
+HEALTH_VECTOR_TIMEOUT = float(os.getenv("HEALTH_VECTOR_TIMEOUT", "2.0"))

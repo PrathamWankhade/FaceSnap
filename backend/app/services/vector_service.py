@@ -1,6 +1,5 @@
 import uuid
 
-import numpy as np
 from app.config import EMBEDDING_DIM, QDRANT_PATH
 
 
@@ -13,7 +12,7 @@ class VectorService:
     def _init_client(self):
         try:
             from qdrant_client import QdrantClient
-            from qdrant_client.models import VectorParams, Distance
+            from qdrant_client.models import Distance, VectorParams
             if QDRANT_PATH == ":memory:":
                 self.client = QdrantClient(":memory:")
             else:
@@ -54,7 +53,6 @@ class VectorService:
     def search(self, embedding: list, limit: int = 1, score_threshold: float = 0.6):
         if self.client is None:
             return []
-        from qdrant_client.models import Filter
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=embedding,
@@ -75,7 +73,7 @@ class VectorService:
     def delete(self, uid: str):
         if self.client is None:
             return
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
         self.client.delete(
             collection_name=self.collection_name,
             points_selector=Filter(

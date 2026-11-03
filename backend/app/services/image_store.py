@@ -7,7 +7,6 @@ later without touching the API layer.
 from __future__ import annotations
 
 import base64
-import os
 from pathlib import Path
 
 from app.config import FACE_IMAGE_DIR
@@ -27,7 +26,7 @@ def decode_data_url(data_url: str) -> bytes:
     raw = data_url.split(",", 1)[1] if data_url.startswith("data:") else data_url
     try:
         return base64.b64decode(raw, validate=True)
-    except Exception as exc:  # noqa: BLE001 - surface a clean error
+    except Exception as exc:
         raise ValueError("Invalid base64 image data.") from exc
 
 

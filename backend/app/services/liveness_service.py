@@ -1,12 +1,13 @@
-import numpy as np
 import cv2
+import numpy as np
 from scipy import signal
 from scipy.fft import fft, fftfreq
+
 from app.config import (
     LIVENESS_FPS_TARGET,
     LIVENESS_FRAME_COUNT,
-    LIVENESS_HEARTBEAT_MIN,
     LIVENESS_HEARTBEAT_MAX,
+    LIVENESS_HEARTBEAT_MIN,
     LIVENESS_RPPG_PASS,
     LIVENESS_SCORE_THRESHOLD,
 )
@@ -151,9 +152,9 @@ class LivenessService:
         if signals.ndim == 1:
             signals = signals.reshape(-1, 1)
         n = signals.shape[0]
-        I = np.eye(n)
-        D2 = np.diff(I, 2, axis=0)
-        trend = np.linalg.inv(I + lamb * D2.T @ D2) @ signals
+        identity_matrix = np.eye(n)
+        D2 = np.diff(identity_matrix, 2, axis=0)
+        trend = np.linalg.inv(identity_matrix + lamb * D2.T @ D2) @ signals
         return signals - trend
 
     def _pos_algorithm(self, skin_signals, fps):

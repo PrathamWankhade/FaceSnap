@@ -29,7 +29,7 @@ def _ensure_admin():
     _admin_init_attempted = True
     try:
         import firebase_admin
-        from firebase_admin import credentials  # noqa: F401
+        from firebase_admin import credentials
 
         cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
         if cred_path and os.path.exists(cred_path):
@@ -90,9 +90,7 @@ def resolve_user_row(db, claims: dict) -> User:
 
     user = db.get(User, uid)
     if user is None:
-        if claims.get("dev_bypass"):
-            role = "admin"
-        elif email and email.lower() in ADMIN_EMAILS:
+        if claims.get("dev_bypass") or email and email.lower() in ADMIN_EMAILS:
             role = "admin"
         else:
             role = "student"
@@ -133,8 +131,8 @@ def require_roles(*allowed: str):
 
 
 async def require_camera_caller(
-    authorization: str | None = Header(default=None),
     x_service_key: str | None = Header(default=None, alias="X-Service-Key"),
+    claims: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Allow a valid service key (Pi/devices) or a staff user.
@@ -145,7 +143,6 @@ async def require_camera_caller(
     if PI_SERVICE_KEY and x_service_key and hmac.compare_digest(x_service_key, PI_SERVICE_KEY):
         return {"uid": "pi-service", "role": "operator"}
 
-    claims = await get_current_user(authorization)
     user = resolve_user_row(db, claims)
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Camera endpoints are staff-only.")

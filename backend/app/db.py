@@ -15,7 +15,7 @@ Design notes
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     DateTime,
@@ -29,7 +29,13 @@ from sqlalchemy import (
     create_engine,
     text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 
 from app.config import DATABASE_URL
 
@@ -47,7 +53,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 def utcnow() -> datetime:
     """Naive UTC — stored consistently across SQLite and Postgres comparisons."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):
@@ -61,8 +67,8 @@ class Department(Base):
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
 
-    courses: Mapped[list["Course"]] = relationship(back_populates="department")
-    students: Mapped[list["Student"]] = relationship(back_populates="department_ref")
+    courses: Mapped[list[Course]] = relationship(back_populates="department")
+    students: Mapped[list[Student]] = relationship(back_populates="department_ref")
 
 
 class User(Base):
@@ -76,7 +82,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="student", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    student: Mapped["Student | None"] = relationship(back_populates="user", uselist=False)
+    student: Mapped[Student | None] = relationship(back_populates="user", uselist=False)
 
 
 class Course(Base):
@@ -88,7 +94,7 @@ class Course(Base):
     department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id", ondelete="SET NULL"))
 
     department: Mapped[Department | None] = relationship(back_populates="courses")
-    sessions: Mapped[list["ClassSession"]] = relationship(back_populates="course")
+    sessions: Mapped[list[ClassSession]] = relationship(back_populates="course")
 
 
 class Student(Base):
@@ -108,7 +114,7 @@ class Student(Base):
 
     user: Mapped[User] = relationship(back_populates="student")
     department_ref: Mapped[Department | None] = relationship(back_populates="students")
-    attendance: Mapped[list["Attendance"]] = relationship(back_populates="student", cascade="all, delete-orphan")
+    attendance: Mapped[list[Attendance]] = relationship(back_populates="student", cascade="all, delete-orphan")
 
 
 class Camera(Base):
@@ -137,7 +143,7 @@ class ClassSession(Base):
     status: Mapped[str] = mapped_column(String(20), default="scheduled")
 
     course: Mapped[Course | None] = relationship(back_populates="sessions")
-    attendance: Mapped[list["Attendance"]] = relationship(back_populates="session")
+    attendance: Mapped[list[Attendance]] = relationship(back_populates="session")
 
 
 class Attendance(Base):
@@ -147,6 +153,18 @@ class Attendance(Base):
         # because SQL treats NULLs as distinct).
         UniqueConstraint("student_id", "session_id", name="uq_attendance_student_session"),
         Index("ix_attendance_student_captured", "student_id", "captured_at"),
+        # One sessionless mark per student per method per day. Declared here (not
+        # only in _ensure_daily_unique_index) so Alembic autogenerate sees it and
+        # the baseline migration carries it — see docs/decisions/0005.
+        Index(
+            "uq_attendance_daily",
+            "student_id",
+            "method",
+            text("date(captured_at)"),
+            unique=True,
+            postgresql_where=text("session_id IS NULL"),
+            sqlite_where=text("session_id IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -230,7 +248,7 @@ def as_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -240,4 +258,4 @@ def to_naive_utc(value: datetime | None) -> datetime | None:
         return None
     if value.tzinfo is None:
         return value
-    return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.astimezone(UTC).replace(tzinfo=None)

@@ -33,6 +33,10 @@ backend/data/
 Thumbs.db
 *.log
 
+# Playwright
+test-results/
+playwright-report/
+
 # IDE
 .vscode/
 .idea/

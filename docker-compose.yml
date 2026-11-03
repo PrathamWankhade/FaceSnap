@@ -1,0 +1,85 @@
+# FaceSnap local validation stack — compose.
+#
+#   docker compose up --build -d
+#   docker compose down -v          (wipes DB + Qdrant + faces — biometric data lost!)
+#
+# This is the stack CI and a developer can spin up locally. It is NOT a production
+# topology: production needs TLS, a managed Postgres with backups, persistent volumes
+# for faces/qdrant, and secrets mounted as real secrets — see docs/hosting.md.
+#
+# Backend defaults to SQLite (DATABASE_URL). To validate against Postgres instead,
+# export DATABASE_URL=postgresql+psycopg://facesnap:${DB_PASSWORD}@db:5432/facesnap
+# before `docker compose up`.
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12
+    restart: unless-stopped
+    volumes:
+      - facesnap-qdrant:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - facesnap-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      REQUIRE_AUTH: "false"
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./facesnap.db}
+      CORS_ORIGINS: http://localhost:3000
+      QDRANT_PATH: /app/data/qdrant
+      FACE_IMAGE_DIR: /app/data/faces
+      LOG_FORMAT: text
+      LOG_LEVEL: INFO
+      RATE_LIMIT_BACKEND: redis
+      REDIS_URL: redis://redis:6379/0
+      AUTO_MIGRATE: "true"
+      PI_CAMERA_ENABLED: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - facesnap-faces:/app/data/faces
+      - facesnap-qdrant-backend:/app/data/qdrant
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # GROQ_API_KEY must be provided by the operator (server-side only):
+      #   docker run ... -e GROQ_API_KEY=... facesnap-frontend
+      # or set it in the host environment before `docker compose up`.
+    ports:
+      - "3000:3000"
+
+volumes:
+  facesnap-qdrant:
+  facesnap-redis:
+  facesnap-faces:
+  facesnap-qdrant-backend:

@@ -1,14 +1,16 @@
+import base64
 import time
+
 import cv2
 import numpy as np
-import base64
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+
+from app.auth import require_camera_caller
+from app.config import ARCFACE_THRESHOLD
 from app.services.camera import pi_camera
 from app.services.face_service import face_service
 from app.services.vector_service import vector_service
-from app.config import ARCFACE_THRESHOLD
-from app.auth import require_camera_caller
 
 router = APIRouter()
 
