@@ -75,3 +75,7 @@ would be pretending:
   a shared limiter can be enabled without a redesign.
 - No CDN/edge caching layer, no WAF, no DDoS protection.
 - SQLite is a dev convenience only — multi-worker production must use Postgres.
+
+## SIEM / log forwarding (documentation)
+
+FaceSnap emits structured JSON logs to stdout (LOG_FORMAT=json). Forward them with an external shipper (Fluent Bit, Vector, or Promtail) to your SIEM. Do not couple the app to a specific vendor; the app stays vendor-neutral. Optional LOG_FORWARD_URL env POSTs log lines best-effort (fail-safe, never blocks requests).

@@ -44,3 +44,13 @@ Time-to-rollback should be measured in minutes; root cause can wait.
 - [ ] Destructive operations are called out in the migration docstring with a data-loss warning
 - [ ] `uq_attendance_daily` (partial unique index) still present after upgrade
 - [ ] Old code still runs against the new schema (expand step) — required for zero-downtime
+
+## Blue-green strategy (documentation only until staging exists)
+
+1. Stand up new version (green) alongside current (blue).
+2. Run health check: GET /api/health must return 200 with all components ready.
+3. Run smoke tests (Playwright e2e subset).
+4. Switch traffic (reverse proxy) only after health + smoke pass.
+5. Keep blue running for rollback window (e.g., 30 min).
+6. Rollback = switch traffic back to blue; no data migration needed (DB is shared, schema backward-compatible).
+7. After window, decommission blue.

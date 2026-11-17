@@ -93,3 +93,13 @@ Incidents: [`runbooks/incident-response.md`](runbooks/incident-response.md).
 Deploys and rollback: [`runbooks/deploy.md`](runbooks/deploy.md),
 [`runbooks/rollback.md`](runbooks/rollback.md).
 Backups: [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
+
+## SLOs (published targets)
+
+| Endpoint | p50 target | p95 target |
+|----------|-----------|-----------|
+| GET /api/health | < 50 ms | < 100 ms |
+| POST /api/detect_webcam | < 500 ms | < 2 s |
+| POST /api/verify_liveness | < 2 s | < 3 s |
+
+Targets are aspirational and must be validated with scripts/load-test.js against a running server. CI does not gate on them.

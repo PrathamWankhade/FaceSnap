@@ -6,6 +6,7 @@ from scipy import signal
 from scipy.fft import fft, fftfreq
 
 from app.config import (
+    INJECTION_CHECK_ENABLED,
     LIVENESS_FPS_TARGET,
     LIVENESS_FRAME_COUNT,
     LIVENESS_HEARTBEAT_MAX,
@@ -40,6 +41,8 @@ class LivenessService:
         if len(frames) < 10:
             return {"live": False, "score": 0.0, "reason": "Could not decode enough frames"}
 
+        injection = self.detect_injection(frames_bytes) if INJECTION_CHECK_ENABLED else {"injection_suspected": False, "reason": None, "identical_ratio": 0.0}
+
         try:
             effective_fps = float(fps) if fps else float(self.fps_target)
         except (TypeError, ValueError):
@@ -54,6 +57,8 @@ class LivenessService:
         # Either a strong pulse alone, or a decent combined score across
         # independent signals, marks the capture as live.
         live = combined >= LIVENESS_SCORE_THRESHOLD or rppg_score >= LIVENESS_RPPG_PASS
+        if injection["injection_suspected"]:
+            live = False
 
         return {
             "live": bool(live),
@@ -62,6 +67,8 @@ class LivenessService:
             "blink_score": float(round(blink_score, 3)),
             "motion_score": float(round(motion_score, 3)),
             "fps": float(round(effective_fps, 1)),
+            "injection_suspected": bool(injection["injection_suspected"]),
+            "injection_reason": injection["reason"],
         }
 
     CHALLENGES = ("blink", "turn_left", "turn_right")
@@ -93,6 +100,29 @@ class LivenessService:
             "blink_score": base.get("blink_score", 0.0),
             "motion_score": base.get("motion_score", 0.0),
         }
+
+    def detect_injection(self, frames_bytes) -> dict:
+        """Best-effort software-injection (replay) detection."""
+        from app.config import INJECTION_IDENTICAL_FRAME_RATIO
+
+        if not frames_bytes:
+            return {"injection_suspected": False, "reason": None, "identical_ratio": 0.0}
+        # Byte-identical frame ratio.
+        hashes = []
+        for fb in frames_bytes:
+            try:
+                hashes.append(hash(fb))
+            except Exception:
+                hashes.append(None)
+        if len(hashes) < 2:
+            return {"injection_suspected": False, "reason": None, "identical_ratio": 0.0}
+        from collections import Counter
+
+        most_common_count = Counter(hashes).most_common(1)[0][1]
+        ratio = most_common_count / len(hashes)
+        if ratio >= INJECTION_IDENTICAL_FRAME_RATIO:
+            return {"injection_suspected": True, "reason": "static or replayed frames (identical frames)", "identical_ratio": round(ratio, 3)}
+        return {"injection_suspected": False, "reason": None, "identical_ratio": round(ratio, 3)}
 
     def _decode_frames(self, frames_bytes):
         frames = []

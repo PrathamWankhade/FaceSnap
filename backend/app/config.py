@@ -148,3 +148,12 @@ HEALTH_VECTOR_TIMEOUT = float(os.getenv("HEALTH_VECTOR_TIMEOUT", "2.0"))
 DRIFT_ALERT_THRESHOLD = float(os.getenv("DRIFT_ALERT_THRESHOLD", "0.30"))
 DRIFT_WINDOW_SIZE = int(os.getenv("DRIFT_WINDOW_SIZE", "100"))
 DRIFT_MIN_SAMPLES = int(os.getenv("DRIFT_MIN_SAMPLES", "20"))
+
+# Privacy-preserving options.
+ANONYMIZE_EXPORTS = _env_bool("ANONYMIZE_EXPORTS", default=False)
+# Region-specific consent notice: default, illinois (BIPA), california (CCPA).
+CONSENT_REGION = os.getenv("CONSENT_REGION", "default").strip().lower()
+
+# Software-injection (replay) detection, best-effort.
+INJECTION_CHECK_ENABLED = _env_bool("INJECTION_CHECK_ENABLED", default=True)
+INJECTION_IDENTICAL_FRAME_RATIO = float(os.getenv("INJECTION_IDENTICAL_FRAME_RATIO", "0.8"))

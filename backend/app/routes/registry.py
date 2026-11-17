@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_row, require_roles
-from app.config import CONSENT_VERSION, DUPLICATE_FACE_DISTANCE, MODEL_VERSION
+from app.config import CONSENT_REGION, CONSENT_VERSION, DUPLICATE_FACE_DISTANCE, MODEL_VERSION
 from app.db import (
     Attendance,
     AuditLog,
@@ -212,6 +212,16 @@ CONSENT_SUMMARY = (
     "match distance and liveness score. You can delete your profile, photo, "
     "embedding and attendance history at any time from the student profile."
 )
+if CONSENT_REGION == "illinois":
+    CONSENT_SUMMARY += (
+        " (Illinois BIPA notice: biometric data is collected and stored for attendance "
+        "verification; you may request deletion at any time.)"
+    )
+elif CONSENT_REGION == "california":
+    CONSENT_SUMMARY += (
+        " (California CCPA notice: you have the right to know, delete and opt out of "
+        "the sale of your personal information; FaceSnap does not sell biometric data.)"
+    )
 
 
 @router.post("/api/consent/accept")
@@ -375,6 +385,12 @@ def enroll(
     _audit(db, user, "student.enroll" if created else "student.update", "student", student.id)
     db.commit()
     db.refresh(student)
+    try:
+        from app.services.events import emit
+
+        emit("student.enrolled" if created else "student.updated", {"uid": target_uid, "student_id": student.id})
+    except Exception:
+        pass
 
     return {
         "student": student_dict(student),
@@ -482,6 +498,12 @@ def delete_student(
     _audit(db, user, "student.delete", "student", student_id)
     db.delete(student)
     db.commit()
+    try:
+        from app.services.events import emit
+
+        emit("student.deleted", {"uid": uid, "student_id": student_id})
+    except Exception:
+        pass
     return {"deleted": True, "uid": uid}
 
 
@@ -526,6 +548,12 @@ def mark_attendance(
             )
         )
     if existing is not None:
+        try:
+            from app.services.events import emit
+
+            emit("attendance.duplicate", {"student_uid": target_uid, "method": payload.method})
+        except Exception:
+            pass
         return {"record": attendance_dict(existing), "duplicate": True}
 
     record = Attendance(
@@ -567,6 +595,12 @@ def mark_attendance(
         return {"record": attendance_dict(again), "duplicate": True}
 
     db.refresh(record)
+    try:
+        from app.services.events import emit
+
+        emit("attendance.created", {"student_uid": target_uid, "method": payload.method, "distance": payload.distance})
+    except Exception:
+        pass
     return {"record": attendance_dict(record), "duplicate": False}
 
 
@@ -978,6 +1012,20 @@ def verify_audit_chain(user: User = Depends(require_roles("admin")), db: Session
             breaks.append({"id": row.id, "reason": "hash mismatch or chain break"})
         prev = row.row_hash
     return {"total": len(rows), "verified": len(rows) - len(breaks), "breaks": breaks}
+
+
+@router.get("/api/admin/model-info")
+def model_info(user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    from app.config import MODEL_VERSION
+
+    students = db.scalars(select(Student)).all()
+    on_current = sum(1 for s in students if s.model_version == MODEL_VERSION)
+    return {
+        "current_model_version": MODEL_VERSION,
+        "students_total": len(students),
+        "on_current_version": on_current,
+        "needs_reenrollment": len(students) - on_current,
+    }
 
 
 @router.post("/api/admin/backfill-embeddings")

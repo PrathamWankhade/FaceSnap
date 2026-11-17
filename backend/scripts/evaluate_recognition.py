@@ -84,12 +84,13 @@ def load_csv_pairs(path: Path, dataset: Path) -> list[tuple[Path, Path, int]]:
         if not stripped or stripped.startswith("#"):
             continue
         parts = [part.strip() for part in stripped.split(",")]
-        if len(parts) != 3:
-            raise ValueError(f"{path}:{line_number}: expected 'path_a,path_b,label'")
+        if len(parts) not in (3, 4):
+            raise ValueError(f"{path}:{line_number}: expected 'path_a,path_b,label[,group]'")
         if line_number == 1 and parts[0].lower() in {"path_a", "image_a"}:
             continue  # header row
-        a, b, label = parts
-        pairs.append((dataset / a, dataset / b, _parse_label(label)))
+        a, b, label = parts[0], parts[1], parts[2]
+        group = parts[3] if len(parts) == 4 else None
+        pairs.append((dataset / a, dataset / b, _parse_label(label), group))
     return pairs
 
 
@@ -107,6 +108,7 @@ def load_lfw_pairs(path: Path, dataset: Path) -> list[tuple[Path, Path, int]]:
                         dataset / name / f"{name}_{int(first):04d}.jpg",
                         dataset / name / f"{name}_{int(second):04d}.jpg",
                         1,
+                        None,
                     )
                 )
             elif len(parts) == 4:
@@ -116,6 +118,7 @@ def load_lfw_pairs(path: Path, dataset: Path) -> list[tuple[Path, Path, int]]:
                         dataset / name_a / f"{name_a}_{int(first):04d}.jpg",
                         dataset / name_b / f"{name_b}_{int(second):04d}.jpg",
                         0,
+                        None,
                     )
                 )
             else:
@@ -149,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=0, help="evaluate at most N pairs (0 = all)")
     parser.add_argument("--min-accuracy", type=float, default=None, help="exit 3 if best accuracy is below this")
     parser.add_argument("--max-eer", type=float, default=None, help="exit 3 if EER is above this")
+    parser.add_argument("--breakdown-by", type=str, default=None, help="name of the demographic column in pairs.csv (4th field); reports per-group metrics")
     args = parser.parse_args(argv)
 
     if not face_service.is_ready:
@@ -176,10 +180,11 @@ def main(argv: list[str] | None = None) -> int:
     timings: list[float] = []
     distances: list[float] = []
     labels: list[int] = []
+    groups: list[str | None] = []
     skipped = 0
     started = time.perf_counter()
 
-    for path_a, path_b, label in raw_pairs:
+    for path_a, path_b, label, group in raw_pairs:
         encoding_a = embed(path_a, cache, timings)
         encoding_b = embed(path_b, cache, timings)
         if encoding_a is None or encoding_b is None:
@@ -189,12 +194,27 @@ def main(argv: list[str] | None = None) -> int:
         del match  # the sweep re-decides at every threshold
         distances.append(distance)
         labels.append(label)
+        groups.append(group)
 
     if not distances:
         print("No usable pairs (every image failed face detection).", file=sys.stderr)
         return 2
 
     report = evaluate(distances, labels)
+    # Optional per-group breakdown (Phase 6.4): pairs.csv may carry a 4th column.
+    if any(g is not None for g in groups):
+        breakdown = {}
+        for group_name in sorted({g for g in groups if g is not None}):
+            idx = [i for i, g in enumerate(groups) if g == group_name]
+            if not idx:
+                continue
+            sub_distances = [distances[i] for i in idx]
+            sub_labels = [labels[i] for i in idx]
+            try:
+                breakdown[group_name] = evaluate(sub_distances, sub_labels)
+            except ValueError:
+                breakdown[group_name] = {"error": "insufficient pairs"}
+        report["breakdown"] = breakdown
     report.update(
         {
             "dataset": str(dataset),
