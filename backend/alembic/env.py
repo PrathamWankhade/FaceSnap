@@ -36,13 +36,14 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Emit SQL to stdout without a live DB connection (``alembic upgrade --sql``)."""
+    url = config.attributes.get("url") or DATABASE_URL
     context.configure(
-        url=DATABASE_URL,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        render_as_batch=DATABASE_URL.startswith("sqlite"),
+        render_as_batch=url.startswith("sqlite"),
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -52,17 +53,18 @@ def run_migrations_online() -> None:
     """Run migrations against a live connection."""
     # The application engine already has the right connect_args for SQLite
     # (check_same_thread=False) and pool settings; reuse it instead of
-    # building a second engine that might differ. A fresh connection is used
-    # every call so repeated ``alembic`` invocations in one process never see a
-    # closed connection cached from a previous command.
-    connectable = app_engine.connect()
+    # building a second engine that might differ. Callers may inject another
+    # engine (tests, admin tooling) via ``config.attributes["engine"]``. A fresh
+    # connection is used every call so repeated ``alembic`` invocations in one
+    # process never see a closed connection cached from a previous command.
+    connectable = (config.attributes.get("engine") or app_engine).connect()
 
     context.configure(
         connection=connectable,
         target_metadata=target_metadata,
         compare_type=True,
         # SQLite cannot ALTER most things in place; batch mode rewrites the table.
-        render_as_batch=DATABASE_URL.startswith("sqlite"),
+        render_as_batch=connectable.dialect.name == "sqlite",
     )
 
     try:

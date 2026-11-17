@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.config import (
     APP_ENV,
@@ -16,6 +16,7 @@ from app.config import (
 from app.db import SessionLocal, init_db
 from app.logging_setup import configure_logging
 from app.middleware.logging import RequestLoggingMiddleware
+from app.metrics import metrics
 from app.routes.detection import router as detection_router
 from app.routes.pi_routes import router as pi_router
 from app.routes.registry import router as registry_router
@@ -204,19 +205,9 @@ def health():
 
 
 @app.get("/api/metrics")
-def metrics():
-    """Prometheus text exposition (aggregate counts only, no PII, no labels with ids)."""
-    # In-process counters only; exported cheaply without a client library.
-    # Routes are bound labels to avoid cardinality bombs and id leakage.
-    lines = [
-        "# HELP facesnap_requests_total Total HTTP requests by route and status",
-        "# TYPE facesnap_requests_total counter",
-        "# HELP facesnap_rate_limited_total Total rate-limiter rejections",
-        "# TYPE facesnap_rate_limited_total counter",
-        "# HELP facesnap_auth_failures_total Total 401/403 responses",
-        "# TYPE facesnap_auth_failures_total counter",
-    ]
-    return "\n".join(lines) + "\n"
+def metrics_endpoint():
+    """Prometheus text exposition: aggregate counts and latency, never identifiers."""
+    return PlainTextResponse(metrics.render(), media_type="text/plain; version=0.0.4")
 
 
 if __name__ == "__main__":

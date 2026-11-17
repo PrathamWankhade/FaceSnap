@@ -18,30 +18,32 @@ from collections.abc import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.config import IS_PRODUCTION
+from app.config import LOG_FORMAT
+from app.metrics import metrics
 
 logger = logging.getLogger("facesnap.request")
-
-# Sensitive header names whose values must never be written to a log line or echoed.
-_REDACTED_HEADERS = {"authorization", "x-service-key", "cookie", "set-cookie"}
 
 # Public path prefixes whose responses may be cached by browsers; everything else gets
 # "no-store" so biometric/attendance data never sits in a shared cache.
 _PUBLIC_PATHS = ("/api/health", "/api/health/live", "/", "/docs", "/openapi.json", "/favicon.ico")
 
 
-def _safe_header_value(name: str, value: str) -> str:
-    if name.lower() in _REDACTED_HEADERS:
-        return "[REDACTED]"
-    return value[:400] + ("…" if len(value) > 400 else "")
-
-
 def _format_record(record: dict) -> str:
-    """Structured JSON in production, key=value text in development."""
-    if IS_PRODUCTION:
+    """Structured JSON when configured (default in production), key=value text otherwise."""
+    if LOG_FORMAT == "json":
         return json.dumps(record, separators=(",", ":"), sort_keys=True)
     parts = [f"{k}={v}" for k, v in record.items()]
     return " ".join(parts)
+
+
+def _route_label(request: Request) -> str:
+    """Bounded route template (e.g. ``/api/students/{student_id}``), never the raw path.
+
+    Raw paths would put student ids and other identifiers into metric labels — a
+    cardinality bomb and a small data leak.
+    """
+    route = request.scope.get("route")
+    return getattr(route, "path", None) or "unmatched"
 
 
 def _log(event: str, **fields) -> None:
@@ -62,20 +64,25 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            duration_ms = (time.monotonic() - start) * 1000
+            duration_seconds = time.monotonic() - start
+            metrics.record_request(
+                request.method, _route_label(request), 500, duration_seconds
+            )
             _log(
                 "request.error",
                 request_id=request_id,
                 method=request.method,
-                route=request.url.path,
-                duration_ms=round(duration_ms, 1),
+                route=_route_label(request),
+                duration_ms=round(duration_seconds * 1000, 1),
                 level="ERROR",
             )
             raise
 
-        duration_ms = (time.monotonic() - start) * 1000
+        duration_seconds = time.monotonic() - start
+        duration_ms = duration_seconds * 1000
         status = response.status_code
         route = request.url.path
+        metrics.record_request(request.method, _route_label(request), status, duration_seconds)
 
         response.headers["X-Request-Id"] = request_id
 

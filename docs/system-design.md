@@ -33,6 +33,7 @@ enrolled face, with a liveness signal — and should carry the evidence needed t
 - Four capture modes: 1:1 live verification, doorway batch, group-photo upload, single camera stream.
 - Attendance: idempotent writes, session-scoped or per-day, full history with filters.
 - Class sessions, leave requests, analytics overview, audit log.
+- Conditional low-light preprocessing (CLAHE + capped gamma) before detection/embedding.
 - Liveness best-effort (rPPG + blink + motion) on the 1:1 flow.
 - Consent notice at enrollment, self-service deletion of profile/photo/embedding/history.
 
@@ -47,6 +48,8 @@ enrolled face, with a liveness signal — and should carry the evidence needed t
 | Mobile apps | Responsive web covers the student flow; apps change the release pipeline, not the value |
 | Offline-first attendance | Conflict resolution on reconnect is a large design surface; campus Wi-Fi assumption holds for v1 |
 | Live proctoring / exam surveillance | Different consent, retention and legal posture |
+| Emotion recognition | No model, dataset, consent basis or product need. Inferring affect from students is a privacy decision, not a feature toggle — see [`paper-alignment.md`](paper-alignment.md) |
+| Custom CNN training / YOLO detection | The project uses pretrained ArcFace (`buffalo_s`) and InsightFace's detector. Training would need a licensed corpus, GPU budget and an evaluation report — [`decisions/0006`](decisions/0006-pretrained-arcface.md) |
 
 ## 4. Non-functional requirements
 
@@ -89,9 +92,13 @@ These are the acceptance criteria the ops/CI layers below exist to satisfy.
 
 ### Performance
 - **NFR-F1** Health endpoints answer in < 100 ms without touching the model.
-- **NFR-F2** Recognition endpoints are rate-limited per client (`RATE_LIMIT_PER_MINUTE`).
+- **NFR-F2** Recognition endpoints are rate-limited per client (`RATE_LIMIT_PER_MINUTE`), shared
+  across workers when `RATE_LIMIT_BACKEND=redis` ([`decisions/0007`](decisions/0007-rate-limit-backend.md)).
 - **NFR-F3** The UI never blocks the camera loop on a non-critical request; detection overlay
   stays responsive on a 1080p stream.
+- **NFR-F4** Recognition quality is measured, not asserted: `scripts/evaluate_recognition.py`
+  reports FAR/FRR/EER/accuracy on a named dataset. No accuracy figure is published until that run
+  exists ([`evaluation.md`](evaluation.md)).
 
 ### Quality
 - **NFR-Q1** CI is green on `main`: lint, type-check, build, pytest, ruff, dependency audit.

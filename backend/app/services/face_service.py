@@ -1,12 +1,78 @@
+import math
 import os
 
 import cv2
 import numpy as np
 
-from app.config import ARCFACE_THRESHOLD, DETECTION_CONFIDENCE, EMBEDDING_DIM
+from app.config import (
+    ARCFACE_THRESHOLD,
+    DETECTION_CONFIDENCE,
+    EMBEDDING_DIM,
+    LOW_LIGHT_MAX_GAMMA,
+    LOW_LIGHT_TARGET_MEAN,
+    LOW_LIGHT_THRESHOLD,
+)
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_DIM = 4096
+
+CLAHE_CLIP_LIMIT = 2.0
+CLAHE_TILE_GRID = (8, 8)
+
+
+def enhance_low_light(bgr: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Lift an under-exposed frame towards a usable luminance range.
+
+    Conditional by design: a frame whose mean luminance is already at/above
+    ``LOW_LIGHT_THRESHOLD`` is returned byte-identical, so normal lighting (and
+    every embedding enrolled before this step existed) behaves exactly as
+    before. A dark frame gets CLAHE on the LAB lightness channel followed by a
+    gamma curve that targets ``LOW_LIGHT_TARGET_MEAN``; the gain is capped so a
+    near-black frame is not amplified into noise.
+
+    Returns ``(image, metrics)`` where metrics records whether the step ran and
+    the luminance before/after — surfaced for logs and tests, never claimed as
+    a detection improvement without a measured benchmark.
+    """
+    if bgr is None or bgr.size == 0:
+        raise ValueError("empty image")
+
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    input_mean = float(gray.mean())
+    if input_mean >= LOW_LIGHT_THRESHOLD:
+        return bgr, {
+            "applied": False,
+            "input_mean": round(input_mean, 2),
+            "output_mean": round(input_mean, 2),
+            "gamma": 1.0,
+        }
+
+    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
+    lightness, a_channel, b_channel = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=CLAHE_CLIP_LIMIT, tileGridSize=CLAHE_TILE_GRID)
+    lightness = clahe.apply(lightness)
+
+    current = max(float(lightness.mean()), 1.0)
+    target = max(LOW_LIGHT_TARGET_MEAN, current)
+    if current < 254.0 and target > current:
+        gamma = math.log(current / 255.0) / math.log(target / 255.0)
+    else:
+        gamma = 1.0
+    gamma = float(min(max(gamma, 1.0), LOW_LIGHT_MAX_GAMMA))
+
+    if gamma > 1.0:
+        lut = ((np.arange(256, dtype=np.float32) / 255.0) ** (1.0 / gamma)) * 255.0
+        lightness = cv2.LUT(lightness, np.clip(lut, 0, 255).astype(np.uint8))
+
+    enhanced = cv2.cvtColor(cv2.merge((lightness, a_channel, b_channel)), cv2.COLOR_LAB2BGR)
+    output_mean = float(cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY).mean())
+    return enhanced, {
+        "applied": True,
+        "input_mean": round(input_mean, 2),
+        "output_mean": round(output_mean, 2),
+        "gamma": round(gamma, 3),
+    }
+
 
 
 class FaceService:
@@ -36,19 +102,31 @@ class FaceService:
     def is_ready(self):
         return self.app is not None
 
+    @staticmethod
+    def _prepare_rgb(image_bytes):
+        """Decode, guard, low-light normalise, and convert to RGB.
+
+        Every detection/embedding path goes through this helper so enrollment
+        and verification see the same preprocessing.
+        """
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        h, w = img.shape[:2]
+        if h <= 0 or w <= 0 or max(h, w) > MAX_IMAGE_DIM:
+            return None
+        img, _meta = enhance_low_light(img)
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
     def count_faces(self, image_bytes) -> int:
         """Number of detected faces, or 0 when the image is unusable."""
         if self.app is None or not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
             return 0
         try:
-            nparr = np.frombuffer(image_bytes, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if img is None:
+            rgb_img = self._prepare_rgb(image_bytes)
+            if rgb_img is None:
                 return 0
-            h, w = img.shape[:2]
-            if h <= 0 or w <= 0 or max(h, w) > MAX_IMAGE_DIM:
-                return 0
-            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return len(self.app.get(rgb_img))
         except Exception:
             return 0
@@ -59,14 +137,9 @@ class FaceService:
         if not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
             return None
         try:
-            nparr = np.frombuffer(image_bytes, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if img is None:
+            rgb_img = self._prepare_rgb(image_bytes)
+            if rgb_img is None:
                 return None
-            h, w = img.shape[:2]
-            if h <= 0 or w <= 0 or max(h, w) > MAX_IMAGE_DIM:
-                return None
-            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             faces = self.app.get(rgb_img)
             if not faces:
                 return None
@@ -92,11 +165,11 @@ class FaceService:
         results = []
         for fb in frames_bytes:
             try:
-                nparr = np.frombuffer(fb, np.uint8)
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                if img is None:
+                if not fb or len(fb) > MAX_IMAGE_BYTES:
                     continue
-                rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                rgb_img = self._prepare_rgb(fb)
+                if rgb_img is None:
+                    continue
                 faces = self.app.get(rgb_img)
                 if not faces:
                     continue

@@ -14,6 +14,7 @@ Built with **Next.js 15** on the frontend and a **FastAPI + SQL + InsightFace Ar
 - **Multi-signal liveness (best effort)** — rPPG pulse, blink and motion cues over a ~5-second frame burst. Static frames are rejected outright. This raises the cost of simple photo/replay attacks; it is **not** a certified presentation-attack-detection (PAD) system.
 - **Four capture modes** — 1:1 student verification, live doorway batch, group-photo upload, and a single-camera stream (Pi/webcam), all writing one canonical attendance schema.
 - **Failures are visible** — camera or API failures produce an error and zero records. Detection, recognition, and attendance are three separate, explicit states in the UI.
+- **Low-light aware, not low-light magic** — frames below a luminance floor get conditional CLAHE + capped gamma before detection/embedding; normally-lit frames are untouched. No learned enhancement model is claimed.
 - **Safe production defaults** — Firebase ID-token auth, role-aware UI *and* API enforcement, staff-only camera/matching routes, a server-side chatbot proxy (no provider key in the browser), explicit CORS, and a fail-fast startup guard.
 
 ## How it works
@@ -29,7 +30,9 @@ Live scan (~50 frames at ~10 FPS) → liveness analysis → ArcFace embedding �
   → threshold check → idempotent attendance event (once per session, else per day/method)
 ```
 
-**Recognition pipeline:** InsightFace `buffalo_s` (ArcFace, 512-dim embeddings, cosine distance, threshold `0.35`) on ONNX Runtime · embeddings cached in a persistent Qdrant index · liveness via rPPG + blink + motion scoring.
+**Recognition pipeline:** conditional low-light normalisation → InsightFace `buffalo_s` **pretrained ArcFace** (512-dim embeddings, cosine distance, threshold `0.35`) on ONNX Runtime → embeddings cached in a persistent Qdrant index → liveness via rPPG + blink + motion scoring.
+
+Terminology matters here: enrollment is **one-shot**; attendance is **multi-frame verified** (~50 frames over ~5 s). There is no custom-trained CNN and no YOLO detector — see [`docs/paper-alignment.md`](docs/paper-alignment.md).
 
 ### Data layer
 
@@ -101,7 +104,9 @@ Copy `frontend/.env.example` → `frontend/.env.local` and `backend/.env.example
 | `APP_ENV` | Backend | No | `development` (default) or `production`. Production enables fail-fast checks. |
 | `REQUIRE_AUTH` | Backend | **Yes in prod** | `true` verifies Firebase ID tokens. Defaults to `true` when `APP_ENV=production`, `false` otherwise. Production refuses to boot with the bypass enabled. |
 | `CORS_ORIGINS` | Backend | **Yes in prod** | Comma-separated browser origins. Development defaults to `*`; production requires explicit origins. |
-| `RATE_LIMIT_PER_MINUTE` | Backend | No | Per-IP limit for face/verification routes (default `120`, `0` disables). In-memory per worker. |
+| `RATE_LIMIT_PER_MINUTE` | Backend | No | Per-IP limit for face/verification routes (default `120`, `0` disables). |
+| `RATE_LIMIT_BACKEND` | Backend | No | `memory` (default, per worker) or `redis` (shared budget across workers; falls back to memory if the store is unreachable) |
+| `REDIS_URL` | Backend | No | Redis DSN used when `RATE_LIMIT_BACKEND=redis` (default `redis://localhost:6379/0`) |
 | `TRUST_PROXY_HEADERS` | Backend | No | Trust `X-Forwarded-For` for client IPs. Keep `false` unless a proxy you control overwrites the header. |
 | `DATABASE_URL` | Backend | No | SQLAlchemy DSN. Default `sqlite:///./facesnap.db`; use `postgresql+psycopg://…` in production |
 | `FACE_IMAGE_DIR` | Backend | No | Directory for enrollment photos (default `./data/faces`). Mount a persistent volume in production |
@@ -110,6 +115,10 @@ Copy `frontend/.env.example` → `frontend/.env.local` and `backend/.env.example
 | `PI_SERVICE_KEY` | Backend | Prod (Pi) | Shared key letting camera devices call `/api/pi/*` via `X-Service-Key` |
 | `PI_CAMERA_ENABLED` | Backend | No | `true` to open the local camera for Pi endpoints (default `false`) |
 | `QDRANT_PATH` | Backend | No | Qdrant storage path (default `./data/qdrant`, persistent). Use `:memory:` for an ephemeral index |
+| `LOW_LIGHT_THRESHOLD` | Backend | No | Mean luminance below which CLAHE + gamma is applied (default `90`); brighter frames pass through untouched |
+| `LOW_LIGHT_TARGET_MEAN` | Backend | No | Luminance the enhancement aims for (default `115`) |
+| `LOW_LIGHT_MAX_GAMMA` | Backend | No | Caps brightening so a near-black frame is not amplified into noise (default `3.0`) |
+| `LOG_FORMAT` / `LOG_LEVEL` | Backend | No | `json` (default in production) or `text`; log level (default `INFO`) |
 | `HOST` / `PORT` | Backend | No | Server bind (default `0.0.0.0:8000`) |
 
 ## API reference
@@ -119,7 +128,9 @@ Base URL: `http://localhost:8000` (or your `PORT`). Authenticated routes expect 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/` | — | Welcome + engine/DB info |
+| GET | `/api/health/live` | — | Liveness probe: process is up, no dependency I/O |
 | GET | `/api/health` | — | Model, DB and vector readiness, enrollment/attendance counts, camera state |
+| GET | `/api/metrics` | — | Prometheus text: request counts, latency histogram, 429/401/403 counters (bounded labels, no ids) |
 | GET | `/api/me` | User | Caller's role and student profile (from the database) |
 | PATCH | `/api/users/{uid}/role` | Admin | Set a user's role (`admin` / `operator` / `student`) |
 | POST | `/api/students/enroll` | User | Validate one face, store the photo, upsert the student row, index the embedding |
@@ -153,6 +164,9 @@ Backend config lives in `backend/app/config.py` — key knobs:
 | `LIVENESS_SCORE_THRESHOLD` | `0.5` | Combined rPPG/blink/motion pass mark |
 | `LIVENESS_RPPG_PASS` | `0.6` | A pulse this strong passes on its own (users who sit still / don't blink) |
 | `LIVENESS_FPS_TARGET` | `10` | Fallback sample rate when a client omits `frame_interval_ms` |
+| `LOW_LIGHT_THRESHOLD` | `90` | Mean luminance below which enhancement runs |
+| `LOW_LIGHT_TARGET_MEAN` | `115` | Target luminance after enhancement |
+| `LOW_LIGHT_MAX_GAMMA` | `3.0` | Cap on brightening gain |
 | Image guardrails | 8 MB / 4096 px | Oversized or undecodable images are rejected with a clean error |
 
 ## App tour
@@ -177,30 +191,40 @@ The UI ships in **light and dark themes** (toggle in the nav, persisted per devi
 - **Staff-only camera/matching**: `/api/detect_webcam`, `/api/verify`, and `/api/pi/*` require `admin`/`operator` (or a valid `PI_SERVICE_KEY`). Attendance tracking itself stays available to authenticated students.
 - **Biometric privacy**: enrollment photos live in `FACE_IMAGE_DIR` (not in the database and never in Firebase); only the object key is stored. Students can delete their profile, photo, embedding and history at any time. Only the owner can fetch their own photo via `/api/students/me/face`.
 - **Derived vector index**: Qdrant can be wiped and rebuilt from SQL at any time (`POST /api/admin/backfill-embeddings`). Embedding point IDs are derived deterministically from the user id, so re-enrollment updates rather than duplicates.
+- **Recognition model**: pretrained InsightFace `buffalo_s` ArcFace embeddings, used as a feature extractor. No custom CNN training and no YOLO detector ship in this repo ([`docs/decisions/0006`](docs/decisions/0006-pretrained-arcface.md)).
+- **Conditional low-light preprocessing**: a frame below the luminance floor is CLAHE/gamma lifted before detection and embedding; a normally-lit frame is unchanged, so existing embeddings stay valid.
 - **Liveness**: static/repeated frames are rejected by a temporal-variance guard. rPPG runs on a Haar-derived face region at the client's measured FPS. See [`docs/SECURITY.md`](docs/SECURITY.md).
 - **Production guard**: with `APP_ENV=production`, startup fails if `REQUIRE_AUTH` is off or CORS is a wildcard. The development auth bypass is also refused at request time in production.
-- **Rate limits**: face/verification routes use a small in-process sliding window (`RATE_LIMIT_PER_MINUTE`). Multi-worker deployments should move this to Redis.
+- **Rate limits**: face/verification routes use a sliding window (`RATE_LIMIT_PER_MINUTE`), per process by default or shared through Redis with `RATE_LIMIT_BACKEND=redis`. A Redis outage degrades to the local window and is logged, never silently dropped.
 
 ### Limitations (honest scope)
 
 - Liveness is **best-effort**, not certified PAD. It is not evaluated against a standard spoof corpus and does not claim resistance to high-quality deepfakes or professional replay setups.
-- Recognition accuracy depends on enrollment photo quality, lighting, and camera placement. No LFW/benchmark number is claimed for this deployment.
+- Recognition accuracy depends on enrollment photo quality, lighting, and camera placement. **No accuracy number is claimed**: the repository ships an evaluation harness (`backend/scripts/evaluate_recognition.py`, see [`docs/evaluation.md`](docs/evaluation.md)) but no named-dataset run has been published.
+- Low-light enhancement is a fixed CLAHE + gamma heuristic with unit-tested bounds. It is not a learned restoration model and its accuracy effect is **not yet measured**.
+- No emotion recognition and no custom-trained CNN/YOLO model exist here. If the paper says otherwise, the paper is wrong — see [`docs/paper-alignment.md`](docs/paper-alignment.md).
+- `/api/analytics/overview` is operational reporting (counts and breakdowns), not a BI/analytics product. Scans are staff-triggered; there is no unattended scheduling.
 - `/cctv` consumes a single camera stream (Pi or webcam); it is **not** an RTSP/CCTV fleet integration. With auth enabled, the browser's `<img>` stream cannot attach a bearer header — use a trusted proxy or the authenticated capture/detect endpoints.
-- SQLite is for local development. Multi-worker production requires Postgres and a shared rate-limit store.
+- SQLite is for local development. Multi-worker production requires Postgres and a shared rate-limit store (`RATE_LIMIT_BACKEND=redis`); no multi-node capacity benchmark has been run.
 - There is no retention-expiry job for attendance or biometric data — retention is a
   policy decision the institution must make before storing real student data.
-- The in-process rate limiter and Qdrant local mode are single-node conveniences.
+- Qdrant local mode is a single-node convenience; a Qdrant server is supported by configuration but not deployed here.
 
 ## Testing & CI
 
 ```bash
-cd backend && python -m pytest -q        # registry/attendance/liveness/security tests (model stubbed, offline)
-cd frontend && npm run lint              # ESLint
-cd frontend && npx tsc --noEmit          # type check
-cd frontend && npm run build             # production build
+cd backend && python -m pytest -q              # registry/attendance/liveness/security/metrics tests (offline)
+cd backend && python -m ruff check app tests   # lint
+cd backend && python scripts/evaluate_recognition.py --help   # FAR/FRR/EER harness (needs a dataset)
+cd frontend && npm run lint                    # ESLint
+cd frontend && npx tsc --noEmit                # type check
+cd frontend && npm run build                   # production build
+cd frontend && npm run test:e2e                # Playwright (starts the dev server itself)
 ```
 
-Backend tests cover attendance idempotency (including the DB-level index), session-scoped marks, role authority, enrollment upserts/conflicts, analytics, liveness sampling/FPS handling, production config guards, and staff-only access. `.github/workflows/ci.yml` runs frontend lint + type-check + build and the backend test suite on every push/PR.
+Backend tests cover attendance idempotency (including the DB-level index), session-scoped marks, role authority, enrollment upserts/conflicts, analytics, liveness sampling/FPS handling, production config guards, staff-only access, the permission/IDOR matrix, low-light preprocessing bounds, Redis limiter fallback, metrics exposition and evaluation math. `.github/workflows/ci.yml` runs frontend lint + type-check + build, the backend suite, ruff, dependency audits, secret scanning and Playwright.
+
+Recognition accuracy is **not** asserted by CI: no dataset ships with the repo. The harness and protocol are documented in [`docs/evaluation.md`](docs/evaluation.md).
 
 ## Project structure
 
@@ -216,15 +240,18 @@ Backend tests cover attendance idempotency (including the DB-level index), sessi
 ├── backend/                  # FastAPI recognition service
 │   ├── app/db.py             # Relational schema (SQLAlchemy) — system of record
 │   ├── app/auth.py           # Firebase token verification + DB-backed roles
-│   ├── app/rate_limit.py     # Sliding-window limiter for face endpoints
+│   ├── app/rate_limit.py     # Memory/Redis limiter for face endpoints
+│   ├── app/metrics.py        # Prometheus text registry (bounded labels)
 │   ├── app/routes/           # registry (students/attendance/sessions), verification,
 │   │                         #   detection, pi_routes
-│   ├── app/services/         # face_service (ArcFace), liveness_service (rPPG/blink/motion),
-│   │                         #   vector_service (Qdrant), image_store, camera
-│   ├── tests/                # pytest: matching math, registry API, liveness, security
+│   ├── app/services/         # face_service (ArcFace + low-light), liveness_service,
+│   │                         #   evaluation (FAR/FRR/EER), vector_service, image_store, camera
+│   ├── scripts/              # evaluate_recognition.py (dataset-driven benchmark)
+│   ├── alembic/              # schema migrations (single source of truth)
+│   ├── tests/                # pytest: matching math, registry API, permissions, liveness, metrics
 │   └── .env.example          # Backend environment template
-├── docs/                     # Architecture, security, deployment guides
-├── .github/workflows/ci.yml  # Lint + type-check + build + tests
+├── docs/                     # system design, ADRs, permissions, evaluation, runbooks
+├── .github/workflows/ci.yml  # Lint + type-check + build + tests + audits + E2E
 └── LICENSE                   # MIT
 ```
 
@@ -236,9 +263,25 @@ Backend tests cover attendance idempotency (including the DB-level index), sessi
   - `CORS_ORIGINS=https://your-frontend.example` (explicit origins — no `*`).
   - `FIREBASE_SERVICE_ACCOUNT_JSON` pointing at a service-account file.
   - `DATABASE_URL=postgresql+psycopg://…` (install `psycopg[binary]`), persistent `QDRANT_PATH` and `FACE_IMAGE_DIR`.
+  - `RATE_LIMIT_BACKEND=redis` + `REDIS_URL` when running more than one worker.
+  - Run `python -m alembic upgrade head` before serving (or set `AUTO_MIGRATE=true` for a single replica).
   - `PI_SERVICE_KEY` if camera devices call the API directly.
   - Run `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 - Full checklists in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+## Docs
+
+| Read this | For |
+|-----------|-----|
+| [`docs/system-design.md`](docs/system-design.md) | personas, scope, numbered NFRs, out-of-scope |
+| [`docs/paper-alignment.md`](docs/paper-alignment.md) | every paper claim vs. what the code actually does |
+| [`docs/evaluation.md`](docs/evaluation.md) | FAR/FRR/EER protocol and the benchmark harness |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | request flow, schema, services |
+| [`docs/permissions.md`](docs/permissions.md) | who may call what |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | threat model, secrets, biometric handling |
+| [`docs/decisions/`](docs/decisions/) | ADRs for irreversible choices |
+| [`docs/runbooks/`](docs/runbooks/) | deploy, rollback, migrate, backup/restore, incident |
+| [`docs/testing.md`](docs/testing.md), [`docs/monitoring.md`](docs/monitoring.md), [`docs/hosting.md`](docs/hosting.md) | tests, observability, hosting |
 
 ## License
 

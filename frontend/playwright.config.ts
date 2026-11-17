@@ -3,15 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * FaceSnap E2E configuration.
  *
- * Runs against `http://localhost:3001` by default. Start the dev servers first:
+ * `npm run test:e2e` starts the Next.js dev server on port 3001 itself. The
+ * unauthenticated specs in `e2e/` do not need the backend; specs that do would
+ * need it started separately (see docs/testing.md).
  *
- *   Terminal 1: cd backend && uvicorn app.main:app --reload --port 8002
- *   Terminal 2: cd frontend && npm run dev -- -p 3001
- *
- * Then:  npx playwright test
- *
- * CI can use the `webServer` option instead (uncomment) to spin the dev server
- * itself; that requires the frontend dev command and a running backend.
+ * Override the target with `PLAYWRIGHT_BASE_URL` when testing a deployed build.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -21,15 +17,17 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001',
     trace: 'on-first-retry',
   },
-  // webServer: {
-  //   command: 'npm run dev -- -p 3001',
-  //   url: 'http://localhost:3001',
-  //   reuseExistingServer: !process.env.CI,
-  //   workingDirectory: './frontend',
-  // },
+  webServer: process.env.PLAYWRIGHT_BASE_URL
+    ? undefined
+    : {
+        command: 'npm run dev -- -p 3001',
+        url: 'http://localhost:3001',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
   projects: [
     {
       name: 'chromium',

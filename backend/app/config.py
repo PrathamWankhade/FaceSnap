@@ -36,6 +36,13 @@ EMBEDDING_DIM = 512
 # Face detection confidence threshold
 DETECTION_CONFIDENCE = 0.5
 
+# Conditional low-light enhancement applied before detection/embedding.
+# A frame at or above the threshold is left untouched; a darker frame is
+# CLAHE+gamma lifted toward the target mean, with a capped gain.
+LOW_LIGHT_THRESHOLD = float(os.getenv("LOW_LIGHT_THRESHOLD", "90"))
+LOW_LIGHT_TARGET_MEAN = float(os.getenv("LOW_LIGHT_TARGET_MEAN", "115"))
+LOW_LIGHT_MAX_GAMMA = float(os.getenv("LOW_LIGHT_MAX_GAMMA", "3.0"))
+
 # Server
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
@@ -46,6 +53,10 @@ CORS_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ORIGINS", _cors_def
 
 # Per-IP limit for the expensive face/verify endpoints. 0 disables the limiter.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+# "memory" (single worker) or "redis" (shared across workers). The Redis client
+# is imported lazily, so the memory backend has no extra dependency.
+RATE_LIMIT_BACKEND = os.getenv("RATE_LIMIT_BACKEND", "memory").strip().lower()
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0").strip()
 
 # Only trust X-Forwarded-For when the app is actually behind a reverse proxy
 # you control; otherwise clients can spoof the header to dodge rate limits.
@@ -60,6 +71,10 @@ QDRANT_PATH = os.getenv("QDRANT_PATH", "./data/qdrant")
 
 # Relational database (system of record). SQLite for dev, Postgres in prod.
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./facesnap.db")
+
+# Apply Alembic migrations at startup. Off by default so a local checkout keeps
+# the create_all fast path; the Docker image and production deploys enable it.
+AUTO_MIGRATE = _env_bool("AUTO_MIGRATE", default=False)
 
 # Local face-image store (swap for S3/MinIO in production)
 FACE_IMAGE_DIR = os.getenv("FACE_IMAGE_DIR", "./data/faces")

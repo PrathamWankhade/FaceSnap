@@ -20,22 +20,29 @@ Rules:
 
 ## Metrics
 
-`GET /api/metrics` renders Prometheus text format from an in-process registry (no client library):
+`GET /api/metrics` renders Prometheus text format from an in-process registry
+(`backend/app/metrics.py`, no client library):
 
 ```
 facesnap_requests_total{method="POST",route="/api/attendance",status="200"} 12
-facesnap_request_duration_seconds_sum / _count     # per route
-facesnap_rate_limited_total                        # 429s
-facesnap_rate_limited_total{key_kind="ip"}         # limiter firings
-facesnap_auth_failures_total                       # 401/403 split by status
+facesnap_request_duration_seconds_bucket{method="POST",route="/api/verify_liveness",le="2.5"} 41
+facesnap_request_duration_seconds_sum{...} / _count{...}          # per route
+facesnap_rate_limited_total                                       # 429s
+facesnap_auth_failures_total{status="401"|"403"}
 facesnap_process_uptime_seconds
 ```
 
-- Counters are **labels-light on purpose**: bounded `route` values only (no raw paths — a path
-  with a student id would become a cardinality bomb and leak ids into your metrics backend).
+- Counters are **label-light on purpose**: `method`, bounded `route` template, `status`. The route
+  label comes from the matched route (`/api/students/{student_id}`), never a raw path — a raw path
+  with a student id would be a cardinality bomb and leak identifiers.
 - No PII in metric labels, ever.
-- Exposition is plain text and unauthenticated: aggregate counts only. If your network does not
-  allow that, restrict `/api/metrics` at the proxy.
+- Latency buckets are `0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10` seconds. `p95` for the recognition
+  routes is computed from this histogram; there is **no published SLO yet** because no
+  representative deployment has been benchmarked. Treat the numbers as observed, not promised.
+- Exposition is plain text and unauthenticated: aggregate counts only. Restrict it at the proxy if
+  your network requires that.
+- Registration happens in the request middleware, so a scrape sees requests completed *before* it;
+  the scrape itself appears on the next one.
 
 ## Logs
 

@@ -37,7 +37,7 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
-from app.config import DATABASE_URL
+from app.config import AUTO_MIGRATE, DATABASE_URL
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
@@ -231,6 +231,17 @@ def _ensure_daily_unique_index() -> None:
 
 
 def init_db() -> None:
+    """Prepare the schema.
+
+    ``AUTO_MIGRATE=true`` runs Alembic to head (stamping a pre-Alembic database
+    first). Otherwise keep the development fast path: create any missing tables
+    and ensure the partial attendance index exists for already-created schemas.
+    """
+    if AUTO_MIGRATE:
+        from app.migrations import upgrade_to_head
+
+        upgrade_to_head(engine)
+        return
     Base.metadata.create_all(bind=engine)
     _ensure_daily_unique_index()
 

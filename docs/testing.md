@@ -5,19 +5,24 @@ evidence that the product works.
 
 | Layer | Tool | Proves | Runs |
 |-------|------|--------|------|
-| Unit / integration | `pytest` (backend) | matching math, permissions, idempotency, config guards | CI + locally |
+| Unit / integration | `pytest` (backend) | matching math, permissions, idempotency, config guards, metrics | CI + locally |
 | Static | `ruff`, `tsc`, `eslint` | style, unused code, type errors before execution | CI |
-| End-to-end | Playwright | real browser → real routes → real API, user-visible states | CI + locally |
+| End-to-end | Playwright | real browser → real routes → user-visible auth states | CI + locally |
 | Load | `scripts/load-test.js` | behaviour under concurrency (rate limits, races) | on demand |
+| Recognition quality | `scripts/evaluate_recognition.py` | FAR/FRR/EER/accuracy on a named dataset | on demand (needs data) |
 
 ## Backend: `pytest`
 
 ```bash
 cd backend
-python -m pytest -q              # full suite, offline, model stubbed
+pip install -r requirements-dev.txt   # runtime deps + ruff + pip-audit
+python -m pytest -q                   # full suite, offline, model stubbed
 python -m pytest tests/test_permissions.py -q
 python -m pytest -k "idempotent" -q
 ```
+
+`requirements-dev.txt` layers lint/audit tooling on `requirements.txt`, so a fresh checkout and
+CI install exactly the same set.
 
 - The face model, vector index and camera are **stubbed**, so the suite needs no model download,
   no network and no GPU. DB, routing, auth resolution and idempotency are real.
@@ -28,10 +33,14 @@ python -m pytest -k "idempotent" -q
 | File | Covers |
 |------|--------|
 | `tests/test_registry_api.py` | enrollment upsert/conflict, attendance idempotency (app + DB index), session-scoped marks, analytics, filters, staff/student scoping |
-| `tests/test_permissions.py` | 401 without a token, 403 for the wrong role, **cross-user read attempts** for every self-scoped route |
+| `tests/test_permissions.py` | 403 for the wrong role and **cross-user read attempts** for self-scoped routes (auth is overridden per test; production 401 is covered in `test_security.py`) |
 | `tests/test_security.py` | production fail-fast guards, dev-bypass refusal, staff-only camera routes, service-key gate, proxy-header trust |
 | `tests/test_liveness.py` | static/repeated frames rejected, measured-FPS handling, frame-count bounds |
 | `tests/test_face_service.py` | guardrails (size/face count), distance maths, threshold behaviour |
+| `tests/test_preprocessing.py` | low-light enhancement is a no-op on bright frames, lifts dark frames, caps gain |
+| `tests/test_metrics.py` | counter/histogram rendering, cumulative buckets, label escaping, bounded routes |
+| `tests/test_evaluation.py` | confusion counts, threshold sweep, monotonic FAR/FRR, EER interpolation, input validation |
+| `tests/test_rate_limit.py` | Redis window counting, outage fallback, `limit=0`, reset |
 
 ### Adding a test
 
@@ -43,31 +52,46 @@ python -m pytest -k "idempotent" -q
 ## Static
 
 ```bash
-cd backend && python -m ruff check app tests     # lint + common bug patterns
+cd backend && python -m ruff check app tests     # correctness lint (E4/E7/E9/F)
 cd frontend && npm run lint && npx tsc --noEmit  # ESLint + types
 ```
 
-Ruff rules live in `backend/ruff.toml`. Keep the lint set small and correctness-oriented
-(`E`, `F`, `W`, `I`, `B`, `UP`) rather than a style crusade; `--fix` handles import order.
+Ruff rules live in `backend/ruff.toml`: error-only pyflakes/pycodestyle (`E4`, `E7`, `E9`, `F`).
+Line length and the bugbear/bandit families are deliberately not enforced — `Depends(...)` in
+default arguments is the FastAPI idiom used throughout `routes/`, and service code catches broad
+exceptions on purpose. `--fix` handles unused imports.
+
+## Recognition quality
+
+```bash
+cd backend
+python scripts/evaluate_recognition.py --dataset /data/lfw --pairs /data/lfw/pairs.txt \
+  --out reports/lfw.json
+```
+
+Reports FAR/FRR/EER/accuracy over labelled genuine/impostor pairs plus embed latency percentiles.
+No dataset ships with the repo and no accuracy number is claimed; the protocol, pair formats and
+gating (`--min-accuracy`, `--max-eer`) are in [`evaluation.md`](evaluation.md).
 
 ## End-to-end: Playwright
 
 ```bash
 cd frontend
-npm run test:e2e            # runs the Next.js dev server itself via webServer config
+npm run test:e2e             # starts the Next.js dev server on :3001 via webServer
 npx playwright test --headed # watch it
+PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test   # against an existing server
 ```
 
-Specs live in `frontend/e2e/`. What is covered and **what deliberately is not**:
+Specs live in `frontend/e2e/`. What is covered today and **what deliberately is not**:
 
-- Covered: landing renders, auth-gated routes redirect when signed out, role-aware navigation,
-  the registration flow's validation states, attendance history rendering, and that the frontend
-  fails *visibly* (no silent success) when the backend is down.
-- **Not covered: a real webcam liveness scan.** The liveness service correctly rejects synthetic
-  video and repeated frames, so a faked camera would test the fake, not the product. Real camera
-  verification is a **manual test** — the checklist is below, and that is an honest limitation,
-  not a gap we paper over with a mock that always passes.
-- CI runs the browser suite in headless Chromium only; other engines are a local concern.
+- Covered: the app shell hydrates past the auth loading state and shows the public navigation;
+  `/register` requires sign-in; `/student`, `/attendance`, `/classroom` and `/cctv` all render an
+  auth-required state when signed out (no crash, no silent success).
+- **Not covered:** Google sign-in, role-aware navigation after login, attendance history rendering,
+  and a real webcam liveness scan. Sign-in needs Firebase credentials; synthetic video is correctly
+  rejected by the liveness service, so a faked camera would test the fake. These are manual checks
+  below — an honest limitation, not something papered over with an always-pass mock.
+- CI runs headless Chromium only; other engines are a local concern.
 
 ## Load
 
@@ -98,9 +122,11 @@ Run before declaring a release-ready change:
 
 `.github/workflows/ci.yml` runs on every push and PR:
 
-- frontend: `lint` → `tsc` → `build`
-- backend: `ruff check` → `pytest`
-- dependency audit: `pip-audit` (Python) and `npm audit` (JS)
-- Playwright job on `main`
+- frontend: `npm audit` → `lint` → `tsc` → `build`
+- backend: `ruff check` → `pip-audit --local --skip-editable` (the environment just installed
+  from `requirements-dev.txt`) → `pytest` → `alembic upgrade head` on a fresh SQLite DB
+- secrets: gitleaks scan of the full history
+- Playwright: headless Chromium, frontend started by the Playwright web server
 
-A red check blocks the change. CI is a floor, not a ceiling — it never proves the camera path.
+A red check blocks the change. CI is a floor, not a ceiling — it never proves the camera path or
+recognition accuracy.

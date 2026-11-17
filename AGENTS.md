@@ -46,11 +46,12 @@ gates. See `docs/decisions/0002-multi-tenancy.md`.
 # Backend (Python 3.11, venv at backend/.venv)
 cd backend
 .venv\Scripts\activate                # Windows: source .venv/bin/activate elsewhere
-pip install -r requirements.txt
+pip install -r requirements-dev.txt    # runtime deps + ruff + pip-audit
 uvicorn app.main:app --reload --port 8000     # dev server
 python -m pytest -q                    # offline tests, model stubbed
 python -m ruff check app tests         # lint
 python -m alembic upgrade head         # apply migrations
+python scripts/evaluate_recognition.py --help   # FAR/FRR/EER harness (needs a dataset)
 
 # Frontend (Node 20+)
 cd frontend
@@ -59,11 +60,13 @@ npm run dev -- -p 3001                 # dev server
 npm run lint                           # ESLint
 npx tsc --noEmit                       # type check
 npm run build                          # production build
-npx playwright test                    # E2E (after `npx playwright install`)
+npm run test:e2e                       # Playwright (starts the dev server itself)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, type-check, build, pytest, ruff and dependency audits
-on every push and pull request. **A red check blocks the change** — fix, do not skip.
+CI (`.github/workflows/ci.yml`) runs lint, type-check, build, pytest, ruff, dependency audits,
+gitleaks and Playwright on every push and pull request. **A red check blocks the change** — fix,
+do not skip. Recognition accuracy is not a CI gate: it needs a licensed dataset (see
+`docs/evaluation.md`).
 
 ## 4. Layout
 
@@ -76,11 +79,15 @@ frontend/
 backend/
   app/config.py   # env config + production fail-fast settings
   app/auth.py     # token verification, DB-backed roles, require_roles, require_camera_caller
-  app/main.py     # FastAPI app, startup guard, CORS, health
+  app/main.py     # FastAPI app, startup guard, CORS, health, metrics
   app/db.py       # SQLAlchemy schema = system of record
-  app/rate_limit.py
+  app/rate_limit.py  # memory/Redis limiter (+ Retry-After)
+  app/metrics.py  # Prometheus text registry
+  app/middleware/ # request ids, JSON logs, security headers
   app/routes/     # registry, verification, detection, pi_routes
-  app/services/   # face_service, liveness_service, vector_service, image_store, camera
+  app/services/   # face_service (ArcFace + low-light), liveness_service,
+                  #   evaluation (FAR/FRR/EER), vector_service, image_store, camera
+  scripts/        # evaluate_recognition.py (dataset-driven benchmark)
   alembic/        # migrations
   tests/          # pytest
 docs/             # see §5
@@ -91,6 +98,8 @@ docs/             # see §5
 | Question | Read |
 |----------|------|
 | Personas, scope, non-functional requirements | `docs/system-design.md` |
+| Paper claims vs. what the code does | `docs/paper-alignment.md` |
+| Recognition accuracy protocol (FAR/FRR/EER) | `docs/evaluation.md` |
 | Why a choice was made | `docs/decisions/` (ADRs) |
 | Architecture, request flow, data model | `docs/ARCHITECTURE.md` |
 | Who may call what (route matrix) | `docs/permissions.md` |

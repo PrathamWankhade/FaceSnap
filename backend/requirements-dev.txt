@@ -1,0 +1,5 @@
+# Development / CI tooling on top of the runtime requirements.
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+ruff>=0.6.0,<1.0.0
+pip-audit>=2.7.0,<3.0.0

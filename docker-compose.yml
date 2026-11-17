@@ -7,10 +7,27 @@
 # topology: production needs TLS, a managed Postgres with backups, persistent volumes
 # for faces/qdrant, and secrets mounted as real secrets — see docs/hosting.md.
 #
-# Backend defaults to SQLite (DATABASE_URL). To validate against Postgres instead,
-# export DATABASE_URL=postgresql+psycopg://facesnap:${DB_PASSWORD}@db:5432/facesnap
-# before `docker compose up`.
+# Backend defaults to SQLite (DATABASE_URL). To validate against Postgres:
+#   DB_PASSWORD=devpassword docker compose --profile postgres up --build
+#   (with DATABASE_URL=postgresql+psycopg://facesnap:devpassword@db:5432/facesnap
+#    exported for the backend service)
 services:
+  db:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: facesnap
+      POSTGRES_USER: facesnap
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD for the postgres profile}
+    volumes:
+      - facesnap-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U facesnap -d facesnap"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   qdrant:
     image: qdrant/qdrant:v1.12
     restart: unless-stopped
@@ -35,7 +52,7 @@ services:
 
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     depends_on:
@@ -64,7 +81,7 @@ services:
 
   frontend:
     build:
-      context: ..
+      context: .
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
     depends_on:
@@ -79,6 +96,7 @@ services:
       - "3000:3000"
 
 volumes:
+  facesnap-db:
   facesnap-qdrant:
   facesnap-redis:
   facesnap-faces:

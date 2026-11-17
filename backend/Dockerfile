@@ -50,6 +50,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY backend/app ./app
+COPY backend/scripts ./scripts
 COPY backend/alembic.ini backend/alembic.ini
 COPY backend/alembic ./alembic
 
@@ -59,11 +60,11 @@ RUN mkdir -p /app/data/faces /app/data/qdrant && \
 
 USER facesnap
 
-# Apply migrations before serving (expand/contract safe; single replica).
-# For multi-replica prod, set AUTO_MIGRATE=false and run `alembic upgrade head`
-# as a separate deploy step instead.
+# Migrations run at startup when AUTO_MIGRATE=true (default below). For a
+# multi-replica prod deploy, set AUTO_MIGRATE=false and run
+# `alembic upgrade head` as a separate deploy step to avoid a race.
 ENV AUTO_MIGRATE=true
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/live', timeout=2)" || exit 1
-CMD ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host ${HOST} --port ${PORT}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host ${HOST} --port ${PORT}"]
