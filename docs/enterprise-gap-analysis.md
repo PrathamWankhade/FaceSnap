@@ -36,7 +36,7 @@ These are correctness properties, not marketing:
 |---|---|---|
 | Certified PAD (ISO/IEC 30107-3) | ✕ | Explicit non-goal: certification needs a certified lab, a spoof corpus and money. Liveness stays best-effort and is never described as certified. |
 | Deepfake / virtual-camera / injection-attack detection | ○ | No defence beyond temporal variance and rPPG. A real defence needs a device-attestation or injection-detection layer; separate project. |
-| Active liveness (turn head / blink on command) | ◐ | The flow asks for a multi-frame burst and scores blink/motion, but there is no challenge-response script. Planned only if the passive signal proves insufficient in a pilot. |
+| Active liveness (turn head / blink on command) | ◐ | Challenge-response protocol added (`issue_challenge`/`verify_challenge`, `/api/liveness/challenge`); passive remains default. Needs production tuning. |
 | Enrollment quality assessment (blur, pose, size, lighting) | ✅ | `face_service.assess_enrollment()` rejects blurry, tiny, dark, low-confidence, turned/tilted photos with machine-readable reasons; tested in `tests/test_enrollment_quality.py`. |
 | De-duplication / one face per identity | ✅ | Cosine distance ≤ `DUPLICATE_FACE_DISTANCE` (0.30) against the vector index blocks a second identity; audited. Requires Qdrant — the response exposes `duplicate_checked` rather than pretending. |
 | Encryption at rest for photos/vectors | ◐ | The app does not encrypt files itself; reliance is on disk/volume encryption (KMS/HSM) at the host. Documented as a deployment responsibility, not a built-in claim. |
@@ -56,7 +56,7 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Multi-camera, RTSP/ONVIF, NVR federation | ○ | `/cctv` is one stream. Multi-camera needs a stream registry, per-camera workers and a scheduler; deliberately not faked with a UI dropdown. |
+| Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`) added; per-camera RTSP workers and scheduler still planned. |
 | Video analytics (counting, crowd density, zones, loitering) | ✕ | Different product (VMS analytics), different consent posture. See ADR 0002 and the non-goals in `docs/system-design.md`. |
 | Real-time alerting (push/SMS/webhook) | ◐ | Webhook alerting added (`app/services/notifier.py`, `ALERT_WEBHOOK_URL`); fires on health degradation and error-rate spikes. Email/SMS still TODO. |
 | PTZ control, camera health, auto-reconnect | ○ | Camera service exposes health; no PTZ/reconnect logic. Needs a device protocol layer. |
@@ -79,7 +79,7 @@ These are correctness properties, not marketing:
 | Gap | Status | Reality / next step |
 |---|---|---|
 | Enterprise SSO beyond Google (SAML/OIDC IdP, SCIM) | ○ | Firebase identity (Google) only; roles come from SQL. SAML/SCIM needs an IdP contract and a provisioning design. |
-| HR/ERP/student-information-system sync | ○ | No outbound sync. A CSV/API import job is the smallest useful step. |
+| HR/ERP/student-information-system sync | ◐ | `scripts/sync_students.py` (CSV idempotent upsert, dry-run) added. API-based sync still planned. |
 | Access-control integration (door unlock, turnstile) | ✕ | Attendance is recorded, not an access-control panel. Physical control is a safety-critical integration and out of scope. |
 | SIEM integration | ○ | Structured JSON logs + request ids exist; no Splunk/QRadar forwarder. A log shipper is deployment work. |
 | Webhooks / event bus | ○ | No outbound events. Retention/attendance changes would be the first events. |
