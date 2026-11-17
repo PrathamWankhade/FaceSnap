@@ -23,6 +23,8 @@ export default function ClassroomPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [syncedCount, setSyncedCount] = useState<number | null>(null);
   const [uploadResults, setUploadResults] = useState<{ logged: string[]; unrecognized: number; faces: number } | null>(null);
 
@@ -35,6 +37,8 @@ export default function ClassroomPage() {
   const prevBoxesRef = useRef<Map<number, { x: number; y: number; w: number; h: number }>>(new Map());
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadData = async () => {
       try {
         const [studentsRes, health] = await Promise.all([
@@ -50,6 +54,7 @@ export default function ClassroomPage() {
             })
             .catch(() => null),
         ]);
+        if (cancelled) return;
         setRegisteredStudents(studentsRes.students);
 
         if (health) {
@@ -59,28 +64,32 @@ export default function ClassroomPage() {
           setSyncError(
             ready
               ? null
-              : 'Recognition engine or vector index is offline — live matching is unavailable. Check the backend and reload.'
+              : 'Recognition engine or vector index is offline — live matching is unavailable. Retry once the backend has finished starting.'
           );
         } else {
-          setSyncError('Recognition engine unreachable — live matching is unavailable. Check that the backend is running, then reload.');
+          setSyncError('Recognition engine unreachable — live matching is unavailable. Check that the backend is running, then retry.');
         }
       } catch (error) {
+        if (cancelled) return;
         console.error('Error loading data:', error);
         toast.error('Failed to initialize system.');
         setSyncError(
           error instanceof ApiError ? error.message : 'Could not load enrolled students from the backend.'
         );
+      } finally {
+        if (!cancelled) setSyncing(false);
       }
     };
 
     loadData();
 
     return () => {
+      cancelled = true;
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
       }
     };
-  }, []);
+  }, [reloadToken]);
 
   const logAttendance = useCallback(async (student: { uid: string; name: string; rollNo?: string; rollNumber?: string }) => {
     if (!student.uid) return;
@@ -366,10 +375,10 @@ export default function ClassroomPage() {
         {/* Recognition status toolbar */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8 max-w-4xl mx-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
-            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${modelsLoaded ? 'bg-emerald-500' : syncError ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'}`} />
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${modelsLoaded ? 'bg-emerald-500' : syncError && !syncing ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'}`} />
             <div>
               <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recognition engine</p>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">{modelsLoaded ? 'Ready' : syncError ? 'Unavailable' : 'Syncing…'}</p>
+              <p className="font-bold text-slate-900 dark:text-white text-sm">{modelsLoaded ? 'Ready' : syncing ? 'Syncing…' : syncError ? 'Unavailable' : 'Syncing…'}</p>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
@@ -388,9 +397,21 @@ export default function ClassroomPage() {
           </div>
         </div>
         {syncError && (
-          <div className="max-w-4xl mx-auto mb-8 flex items-start gap-2 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 p-3 rounded-xl border border-rose-100 dark:border-rose-900">
+          <div className="max-w-4xl mx-auto mb-8 flex items-start gap-3 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 p-3 rounded-xl border border-rose-100 dark:border-rose-900">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <p>{syncError}</p>
+            <p className="flex-1">{syncError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSyncing(true);
+                setReloadToken((n) => n + 1);
+              }}
+              disabled={syncing}
+              className="flex-shrink-0 font-bold rounded-lg px-3 py-1 bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+            >
+              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {syncing ? 'Retrying…' : 'Retry'}
+            </button>
           </div>
         )}
         {!syncError && registeredStudents.length === 0 && (
