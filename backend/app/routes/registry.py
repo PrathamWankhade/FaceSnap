@@ -136,7 +136,22 @@ def attendance_dict(record: Attendance) -> dict:
 
 
 def _audit(db: Session, actor: User, action: str, entity: str, entity_id: str | int | None) -> None:
-    db.add(AuditLog(actor_id=actor.id, action=action, entity=entity, entity_id=str(entity_id)))
+    import hashlib
+
+    last = db.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(1)).first()
+    prev_hash = last.row_hash if last is not None else "GENESIS"
+    timestamp = utcnow()
+    payload = f"{prev_hash}|{actor.id if actor else ''}|{action}|{entity}|{entity_id}|{timestamp.isoformat()}"
+    row_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    db.add(AuditLog(
+        actor_id=actor.id if actor else None,
+        action=action,
+        entity=entity,
+        entity_id=str(entity_id) if entity_id is not None else None,
+        created_at=timestamp,
+        prev_hash=prev_hash,
+        row_hash=row_hash,
+    ))
 
 
 def _student_for_user(db: Session, uid: str) -> Student | None:
@@ -197,6 +212,22 @@ CONSENT_SUMMARY = (
     "match distance and liveness score. You can delete your profile, photo, "
     "embedding and attendance history at any time from the student profile."
 )
+
+
+@router.post("/api/consent/accept")
+def accept_consent(
+    user: User = Depends(get_current_user_row),
+    db: Session = Depends(get_db),
+):
+    student = _require_student(db, user.id)
+    if student.consent_version == CONSENT_VERSION:
+        return {"consentVersion": student.consent_version, "acceptedAt": _iso(student.consent_at), "changed": False}
+    student.consent_version = CONSENT_VERSION
+    student.consent_at = utcnow()
+    _audit(db, user, "consent.accept", "student", student.id)
+    db.commit()
+    db.refresh(student)
+    return {"consentVersion": student.consent_version, "acceptedAt": _iso(student.consent_at), "changed": True}
 
 
 @router.get("/api/consent")
@@ -926,6 +957,29 @@ def delete_camera(
     db.delete(cam)
     db.commit()
     return {"deleted": True, "id": camera_id}
+# ---------------------------------------------------------------------------
+# Audit chain verification
+# ---------------------------------------------------------------------------
+@router.get("/api/audit/verify")
+def verify_audit_chain(user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    import hashlib
+
+    rows = db.scalars(select(AuditLog).order_by(AuditLog.id.asc())).all()
+    prev = "GENESIS"
+    breaks = []
+    for row in rows:
+        if row.row_hash is None:
+            prev = row.prev_hash or prev
+            continue
+        timestamp = (row.created_at.isoformat() if row.created_at else "")
+        payload = f"{row.prev_hash}|{row.actor_id or ''}|{row.action}|{row.entity}|{row.entity_id}|{timestamp}"
+        expected = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        if row.prev_hash != prev or row.row_hash != expected:
+            breaks.append({"id": row.id, "reason": "hash mismatch or chain break"})
+        prev = row.row_hash
+    return {"total": len(rows), "verified": len(rows) - len(breaks), "breaks": breaks}
+
+
 @router.post("/api/admin/backfill-embeddings")
 def backfill_embeddings(
     user: User = Depends(require_roles("admin")),

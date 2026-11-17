@@ -212,6 +212,8 @@ class AuditLog(Base):
     entity: Mapped[str] = mapped_column(String(60))
     entity_id: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64))
+    row_hash: Mapped[str | None] = mapped_column(String(64))
 
 
 class DetectionReview(Base):

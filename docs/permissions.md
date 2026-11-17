@@ -25,6 +25,7 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/health` | — | component readiness | never touches the model (NFR-O1) |
 | GET | `/api/health/live` | — | process liveness | for uptime probes |
 | GET | `/api/consent` | — | consent notice | version + summary the register page must acknowledge |
+| POST | `/api/consent/accept` | User | self | records re-consent to current version; audited |
 | GET | `/api/me` | User | caller | role + own student profile |
 | PATCH | `/api/users/{uid}/role` | Admin | target user | audited; admin cannot demote themselves (see below) |
 | POST | `/api/students/enroll` | User | self; **Staff** may specify another `user_uid` | exactly one face, quality gate + duplicate check; current `consent_version` required; audited |
@@ -41,7 +42,7 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/sessions` | User | institution-wide (no PII beyond room/title) | students need this to pick a session |
 | POST | `/api/leave` | User | own student row only | `session_id` must exist |
 | GET | `/api/leave` | User | **Staff:** all · **Student:** own | |
-| POST | `/api/admin/backfill-embeddings` | Admin | whole index | audited rebuild of Qdrant from SQL |
+| GET | `/api/audit/verify` | Admin | audit chain integrity | verifies hash chain, reports breaks |
 | POST | `/api/verify` | Staff | arbitrary two images | deliberately **not** student-callable: it would be a general face-comparison oracle |
 | POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited |
 | POST | `/api/sync` | Staff | bulk import | legacy bulk path; prefer enroll/backfill |
