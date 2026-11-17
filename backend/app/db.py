@@ -231,6 +231,8 @@ class DetectionReview(Base):
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     camera_id: Mapped[int | None] = mapped_column(ForeignKey("cameras.id", ondelete="SET NULL"), index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    priority: Mapped[str] = mapped_column(String(10), default="medium", index=True)
+    category: Mapped[str] = mapped_column(String(30), default="unknown_face", index=True)
     nearest_uid: Mapped[str | None] = mapped_column(String(128))
     nearest_distance: Mapped[float | None] = mapped_column(Float)
     note: Mapped[str | None] = mapped_column(Text)

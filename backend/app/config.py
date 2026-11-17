@@ -143,3 +143,8 @@ LOG_FORMAT = os.getenv("LOG_FORMAT", "json" if IS_PRODUCTION else "text")
 # Health timeouts (seconds). Dependencies slower than this count as unhealthy.
 HEALTH_DB_TIMEOUT = float(os.getenv("HEALTH_DB_TIMEOUT", "2.0"))
 HEALTH_VECTOR_TIMEOUT = float(os.getenv("HEALTH_VECTOR_TIMEOUT", "2.0"))
+
+# Drift alerting: rolling mean of match distances per route.
+DRIFT_ALERT_THRESHOLD = float(os.getenv("DRIFT_ALERT_THRESHOLD", "0.30"))
+DRIFT_WINDOW_SIZE = int(os.getenv("DRIFT_WINDOW_SIZE", "100"))
+DRIFT_MIN_SAMPLES = int(os.getenv("DRIFT_MIN_SAMPLES", "20"))

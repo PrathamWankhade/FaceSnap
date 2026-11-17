@@ -28,10 +28,16 @@ STAFF = ("admin", "operator")
 class ReviewResolveRequest(BaseModel):
     status: str = "resolved"
     note: str | None = None
+    priority: str | None = None
+    category: str | None = None
 
 
 class AssignRequest(BaseModel):
     assigned_to: str | None = None
+
+
+class BulkRequest(BaseModel):
+    ids: list[int]
 
 
 def _review_dict(row: DetectionReview) -> dict:
@@ -39,6 +45,8 @@ def _review_dict(row: DetectionReview) -> dict:
         "id": row.id,
         "detectedAt": row.detected_at.isoformat() + "Z" if row.detected_at else None,
         "status": row.status,
+        "priority": row.priority,
+        "category": row.category,
         "cameraId": row.camera_id,
         "nearestUid": row.nearest_uid,
         "nearestDistance": row.nearest_distance,
@@ -126,6 +134,15 @@ def detect_webcam(
                 metrics.record_match_distance(match["distance"], route="/api/detect_webcam")
             except Exception:
                 pass
+            try:
+                from app.config import DRIFT_ALERT_THRESHOLD, DRIFT_MIN_SAMPLES
+                from app.services.notifier import drift_spike
+
+                mean, count = metrics.rolling_mean("/api/detect_webcam")
+                if count >= DRIFT_MIN_SAMPLES:
+                    drift_spike("/api/detect_webcam", mean, DRIFT_ALERT_THRESHOLD)
+            except Exception:
+                pass
         face_data.append({
             "box": [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]],
             "match": {
@@ -195,6 +212,10 @@ def resolve_review_item(
         raise HTTPException(status_code=422, detail="Invalid status.")
     row.status = payload.status
     row.note = payload.note if payload.note is not None else row.note
+    if payload.priority is not None:
+        row.priority = payload.priority
+    if payload.category is not None:
+        row.category = payload.category
     if payload.status in {"resolved", "dismissed"}:
         row.resolved_by = user.id if hasattr(user, "id") else getattr(user, "uid", None)
         row.resolved_at = utcnow()
@@ -208,6 +229,42 @@ def resolve_review_item(
     except Exception:
         pass
     return _review_dict(row)
+
+
+@router.post("/api/detections/review/bulk-resolve")
+def bulk_resolve(payload: BulkRequest, user: User = Depends(require_roles(*STAFF)), db: Session = Depends(get_db)):
+    rows = db.scalars(select(DetectionReview).where(DetectionReview.id.in_(payload.ids))).all()
+    for row in rows:
+        row.status = "resolved"
+        row.resolved_by = user.id if hasattr(user, "id") else getattr(user, "uid", None)
+        row.resolved_at = utcnow()
+    db.commit()
+    try:
+        from app.routes.registry import _audit
+
+        _audit(db, user, "detection.review.bulk_resolve", "detection_review", ",".join(str(i) for i in payload.ids))
+        db.commit()
+    except Exception:
+        pass
+    return {"resolved": len(rows)}
+
+
+@router.post("/api/detections/review/bulk-dismiss")
+def bulk_dismiss(payload: BulkRequest, user: User = Depends(require_roles(*STAFF)), db: Session = Depends(get_db)):
+    rows = db.scalars(select(DetectionReview).where(DetectionReview.id.in_(payload.ids))).all()
+    for row in rows:
+        row.status = "dismissed"
+        row.resolved_by = user.id if hasattr(user, "id") else getattr(user, "uid", None)
+        row.resolved_at = utcnow()
+    db.commit()
+    try:
+        from app.routes.registry import _audit
+
+        _audit(db, user, "detection.review.bulk_dismiss", "detection_review", ",".join(str(i) for i in payload.ids))
+        db.commit()
+    except Exception:
+        pass
+    return {"dismissed": len(rows)}
 
 
 @router.post("/api/detections/review/{item_id}/assign")
@@ -236,3 +293,4 @@ def assign_review_item(
     except Exception:
         pass
     return _review_dict(row)
+

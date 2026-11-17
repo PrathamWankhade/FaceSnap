@@ -103,3 +103,10 @@ def error_rate_spike(total: int, failures: int) -> bool:
     if rate >= ALERT_ERROR_RATE_THRESHOLD:
         return notify("error_rate_spike", {"total": total, "failures": failures, "rate": rate})
     return False
+
+
+def drift_spike(route: str, rolling_mean: float, threshold: float) -> bool:
+    """Notify when the rolling mean of match distances exceeds the threshold."""
+    if rolling_mean >= threshold:
+        return notify("drift_spike", {"route": route, "rolling_mean": rolling_mean, "threshold": threshold})
+    return False

@@ -50,6 +50,8 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/detections/review` | Staff | unmatched detection queue | filters: `status`, `limit` |
 | PATCH | `/api/detections/review/{id}` | Staff | resolve/dismiss review item | audited |
 | POST | `/api/detections/review/{id}/assign` | Staff | assign review item to an operator | audited |
+| POST | `/api/detections/review/bulk-resolve` | Staff | bulk resolve review items | audited |
+| POST | `/api/detections/review/bulk-dismiss` | Staff | bulk dismiss review items | audited |
 | GET | `/api/reports/attendance` | Staff | CSV attendance export | filters: `student_uid`, `method`, `session_id`, `department`, `from`, `to`; audited |
 | GET | `/api/pi/health` | Staff/Key | camera/engine state | |
 | GET | `/api/pi/stream` | Staff/Key | MJPEG | browsers cannot attach a bearer header to `<img>`; use a proxy or the capture/detect endpoints |

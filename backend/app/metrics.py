@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import threading
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Iterable
+
+from app.config import DRIFT_WINDOW_SIZE
 
 # Bucket upper bounds in seconds. Covers a fast health probe through a slow
 # CPU-bound recognition call; anything above the last bucket counts as +Inf.
@@ -44,6 +46,8 @@ class Metrics:
         self._started = time.monotonic()
         # route -> {"sum", "count", "buckets"} for match cosine distances (0..1)
         self._match_distances: dict[str, dict] = {}
+        # route -> deque of recent match distances for drift rolling mean
+        self._match_windows: dict[str, deque] = {}
 
     # -- recording ---------------------------------------------------------
     def record_request(
@@ -107,6 +111,18 @@ class Metrics:
                 if value <= bound:
                     entry["buckets"][index] += 1
 
+            window = self._match_windows.get(route)
+            if window is None:
+                window = deque(maxlen=DRIFT_WINDOW_SIZE)
+                self._match_windows[route] = window
+            window.append(value)
+
+    def rolling_mean(self, route: str) -> tuple[float, int]:
+        window = self._match_windows.get(route)
+        if not window:
+            return 0.0, 0
+        return sum(window) / len(window), len(window)
+
     def reset(self) -> None:
         with self._lock:
             self._requests.clear()
@@ -115,6 +131,7 @@ class Metrics:
             self._auth_failures.clear()
             self._started = time.monotonic()
             self._match_distances.clear()
+            self._match_windows.clear()
 
     # -- exposition --------------------------------------------------------
     def render(self) -> str:
@@ -137,6 +154,7 @@ class Metrics:
                 key: {"sum": v["sum"], "count": v["count"], "buckets": list(v["buckets"])}
                 for key, v in self._match_distances.items()
             }
+            match_windows = {key: (sum(w) / len(w) if w else 0.0, len(w)) for key, w in self._match_windows.items()}
         lines: list[str] = [
             "# HELP facesnap_requests_total HTTP requests by method, route and status.",
             "# TYPE facesnap_requests_total counter",
@@ -192,6 +210,13 @@ class Metrics:
             )
             lines.append(f"facesnap_match_distance_sum{{{labels}}} {entry['sum']:.6f}")
             lines.append(f"facesnap_match_distance_count{{{labels}}} {entry['count']}")
+
+        lines += [
+            "# HELP facesnap_match_distance_rolling_mean Rolling mean of match distances (drift monitoring).",
+            "# TYPE facesnap_match_distance_rolling_mean gauge",
+        ]
+        for route, (mean, count) in sorted(match_windows.items()):
+            lines.append(f'facesnap_match_distance_rolling_mean{{route="{_escape(route)}"}} {mean:.6f}')
 
         lines += [
             "# HELP facesnap_process_uptime_seconds Seconds since this process started.",
