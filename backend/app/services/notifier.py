@@ -50,8 +50,8 @@ def _deliver(url: str, payload: dict[str, Any]) -> bool:
 def _cooldown_ok(event: str) -> bool:
     now = time.monotonic()
     with _lock:
-        last = _last_fired.get(event, 0.0)
-        if now - last < ALERT_COOLDOWN_SECONDS:
+        last = _last_fired.get(event)
+        if last is not None and now - last < ALERT_COOLDOWN_SECONDS:
             return False
         _last_fired[event] = now
         return True

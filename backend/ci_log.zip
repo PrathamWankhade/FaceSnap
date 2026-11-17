@@ -1,0 +1,684 @@
+﻿2026-11-17T13:35:58.8169246Z Current runner version: '2.338.2'
+2026-11-17T13:35:58.8185816Z ##[group]Runner Image Provisioner
+2026-11-17T13:35:58.8186449Z Hosted Compute Agent
+2026-11-17T13:35:58.8186868Z Version: 20261103.629
+2026-11-17T13:35:58.8187363Z Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+2026-11-17T13:35:58.8187889Z Build Date: 2026-11-03T17:26:59Z
+2026-11-17T13:35:58.8188398Z Worker ID: {f5188ae5-f57c-4483-9b02-0e62447217b7}
+2026-11-17T13:35:58.8188906Z Region: us-east-1
+2026-11-17T13:35:58.8189299Z Cloud: AWS
+2026-11-17T13:35:58.8189726Z ##[endgroup]
+2026-11-17T13:35:58.8190613Z ##[group]Operating System
+2026-11-17T13:35:58.8191318Z Ubuntu
+2026-11-17T13:35:58.8191726Z 26.04.1
+2026-11-17T13:35:58.8192087Z LTS
+2026-11-17T13:35:58.8192469Z ##[endgroup]
+2026-11-17T13:35:58.8192865Z ##[group]Runner Image
+2026-11-17T13:35:58.8193305Z Image: ubuntu-26.04
+2026-11-17T13:35:58.8193733Z Version: 20261111.82.6
+2026-11-17T13:35:58.8194625Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261111.82/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-17T13:35:58.8195955Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261111.82
+2026-11-17T13:35:58.8196626Z ##[endgroup]
+2026-11-17T13:35:58.8197505Z ##[group]GITHUB_TOKEN Permissions
+2026-11-17T13:35:58.8199147Z Contents: read
+2026-11-17T13:35:58.8199585Z Metadata: read
+2026-11-17T13:35:58.8199978Z Packages: read
+2026-11-17T13:35:58.8200419Z ##[endgroup]
+2026-11-17T13:35:58.8202191Z Secret source: Actions
+2026-11-17T13:35:58.8202928Z Cache mode: write
+2026-11-17T13:35:58.8203515Z Prepare workflow directory
+2026-11-17T13:35:58.8446811Z Prepare all required actions
+2026-11-17T13:35:58.8482925Z Getting action download info
+2026-11-17T13:35:59.0041997Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-17T13:36:00.7716659Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-11-17T13:36:01.0618591Z Complete job name: backend
+2026-11-17T13:36:01.1270925Z ##[group]Run actions/checkout@v4
+2026-11-17T13:36:01.1271759Z with:
+2026-11-17T13:36:01.1272261Z   repository: PrathamWankhade/FaceSnap
+2026-11-17T13:36:01.1275460Z   token: ***
+2026-11-17T13:36:01.1275879Z   ssh-strict: true
+2026-11-17T13:36:01.1276309Z   ssh-user: git
+2026-11-17T13:36:01.1276730Z   persist-credentials: true
+2026-11-17T13:36:01.1277200Z   clean: true
+2026-11-17T13:36:01.1277692Z   sparse-checkout-cone-mode: true
+2026-11-17T13:36:01.1278204Z   fetch-depth: 1
+2026-11-17T13:36:01.1278630Z   fetch-tags: false
+2026-11-17T13:36:01.1279054Z   show-progress: true
+2026-11-17T13:36:01.1279502Z   lfs: false
+2026-11-17T13:36:01.1279925Z   submodules: false
+2026-11-17T13:36:01.1280345Z   set-safe-directory: true
+2026-11-17T13:36:01.1281064Z   allow-unsafe-pr-checkout: false
+2026-11-17T13:36:01.1281737Z ##[endgroup]
+2026-11-17T13:36:04.4199941Z Syncing repository: PrathamWankhade/FaceSnap
+2026-11-17T13:36:04.4202206Z ##[group]Getting Git version info
+2026-11-17T13:36:04.4203110Z Working directory is '/home/runner/work/FaceSnap/FaceSnap'
+2026-11-17T13:36:04.4204132Z [command]/usr/bin/git version
+2026-11-17T13:36:04.4204587Z git version 2.56.1
+2026-11-17T13:36:04.4211500Z ##[endgroup]
+2026-11-17T13:36:04.4222259Z Temporarily overriding HOME='/home/runner/work/_temp/f3bb292e-0afd-45cf-bb44-91b8b8877013' before making global git config changes
+2026-11-17T13:36:04.4223262Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-17T13:36:04.4225983Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/FaceSnap/FaceSnap
+2026-11-17T13:36:04.4602487Z Deleting the contents of '/home/runner/work/FaceSnap/FaceSnap'
+2026-11-17T13:36:04.4606028Z ##[group]Initializing the repository
+2026-11-17T13:36:04.4608847Z [command]/usr/bin/git init /home/runner/work/FaceSnap/FaceSnap
+2026-11-17T13:36:04.5483853Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-17T13:36:04.5484557Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-17T13:36:04.5485600Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-17T13:36:04.5486025Z hint: call:
+2026-11-17T13:36:04.5486278Z hint:
+2026-11-17T13:36:04.5486657Z hint: 	git config --global init.defaultBranch <name>
+2026-11-17T13:36:04.5487012Z hint:
+2026-11-17T13:36:04.5487368Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-17T13:36:04.5487841Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-17T13:36:04.5488200Z hint:
+2026-11-17T13:36:04.5488483Z hint: 	git branch -m <name>
+2026-11-17T13:36:04.5488809Z hint:
+2026-11-17T13:36:04.5489182Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-17T13:36:04.5502345Z Initialized empty Git repository in /home/runner/work/FaceSnap/FaceSnap/.git/
+2026-11-17T13:36:04.5509219Z [command]/usr/bin/git remote add origin https://github.com/PrathamWankhade/FaceSnap
+2026-11-17T13:36:04.5571738Z ##[endgroup]
+2026-11-17T13:36:04.5572509Z ##[group]Disabling automatic garbage collection
+2026-11-17T13:36:04.5573216Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-17T13:36:04.5594881Z ##[endgroup]
+2026-11-17T13:36:04.5595458Z ##[group]Setting up auth
+2026-11-17T13:36:04.5598971Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-17T13:36:04.5620426Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-17T13:36:04.8335017Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-17T13:36:04.8356703Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-17T13:36:04.8528679Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-17T13:36:04.8549156Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-17T13:36:04.8715287Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-17T13:36:04.8736936Z ##[endgroup]
+2026-11-17T13:36:04.8737373Z ##[group]Fetching the repository
+2026-11-17T13:36:04.8742973Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +44c60d2da68ed83b570dda0faba3157761e02e8e:refs/remotes/origin/main
+2026-11-17T13:36:05.2968991Z From https://github.com/PrathamWankhade/FaceSnap
+2026-11-17T13:36:05.2969646Z  * [new ref]         44c60d2da68ed83b570dda0faba3157761e02e8e -> origin/main
+2026-11-17T13:36:05.2973050Z ##[endgroup]
+2026-11-17T13:36:05.2974803Z ##[group]Determining the checkout info
+2026-11-17T13:36:05.2975209Z ##[endgroup]
+2026-11-17T13:36:05.2978930Z [command]/usr/bin/git sparse-checkout disable
+2026-11-17T13:36:05.3026593Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-17T13:36:05.3047467Z ##[group]Checking out the ref
+2026-11-17T13:36:05.3050470Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-17T13:36:05.3159739Z Switched to a new branch 'main'
+2026-11-17T13:36:05.3166889Z branch 'main' set up to track 'origin/main'.
+2026-11-17T13:36:05.3169452Z ##[endgroup]
+2026-11-17T13:36:05.3208832Z [command]/usr/bin/git log -1 --format=%H
+2026-11-17T13:36:05.3224881Z 44c60d2da68ed83b570dda0faba3157761e02e8e
+2026-11-17T13:36:05.3425266Z ##[group]Run actions/setup-python@v5
+2026-11-17T13:36:05.3425580Z with:
+2026-11-17T13:36:05.3425838Z   python-version: 3.11
+2026-11-17T13:36:05.3426107Z   check-latest: false
+2026-11-17T13:36:05.3427809Z   token: ***
+2026-11-17T13:36:05.3428025Z   update-environment: true
+2026-11-17T13:36:05.3428306Z   allow-prereleases: false
+2026-11-17T13:36:05.3428577Z   freethreaded: false
+2026-11-17T13:36:05.3428986Z ##[endgroup]
+2026-11-17T13:36:05.4423756Z ##[group]Installed versions
+2026-11-17T13:36:05.8849680Z (node:2357) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-17T13:36:05.8850269Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-17T13:36:05.8897644Z Successfully set up CPython (3.11.18)
+2026-11-17T13:36:05.8898442Z ##[endgroup]
+2026-11-17T13:36:05.9021455Z ##[group]Run python -m pip install --upgrade pip setuptools
+2026-11-17T13:36:05.9021994Z [36;1mpython -m pip install --upgrade pip setuptools[0m
+2026-11-17T13:36:05.9720358Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:36:05.9720889Z env:
+2026-11-17T13:36:05.9721191Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:05.9721613Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:36:05.9722005Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:05.9722388Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:05.9722763Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:05.9723138Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:36:05.9723439Z ##[endgroup]
+2026-11-17T13:36:10.5224507Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages (26.3)
+2026-11-17T13:36:10.5599324Z Requirement already satisfied: setuptools in /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages (79.0.1)
+2026-11-17T13:36:10.6278575Z Collecting setuptools
+2026-11-17T13:36:10.6457727Z   Downloading setuptools-84.2.1-py3-none-any.whl.metadata (6.6 kB)
+2026-11-17T13:36:10.6543501Z Downloading setuptools-84.2.1-py3-none-any.whl (876 kB)
+2026-11-17T13:36:10.7036709Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 876.3/876.3 kB 144.4 MB/s  0:00:00
+2026-11-17T13:36:11.0363650Z Installing collected packages: setuptools
+2026-11-17T13:36:11.0364293Z   Attempting uninstall: setuptools
+2026-11-17T13:36:11.0372711Z     Found existing installation: setuptools 79.0.1
+2026-11-17T13:36:11.1380468Z     Uninstalling setuptools-79.0.1:
+2026-11-17T13:36:11.1607848Z       Successfully uninstalled setuptools-79.0.1
+2026-11-17T13:36:11.4650065Z Successfully installed setuptools-84.2.1
+2026-11-17T13:36:11.5207050Z ##[group]Run pip install -r requirements-dev.txt
+2026-11-17T13:36:11.5207395Z [36;1mpip install -r requirements-dev.txt[0m
+2026-11-17T13:36:11.5227029Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:36:11.5227379Z env:
+2026-11-17T13:36:11.5227668Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:11.5228052Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:36:11.5228485Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:11.5228834Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:11.5229179Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:11.5229556Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:36:11.5229850Z ##[endgroup]
+2026-11-17T13:36:12.2768890Z Collecting fastapi<1.0.0,>=0.104.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:12.2928094Z   Downloading fastapi-0.163.1-py3-none-any.whl.metadata (27 kB)
+2026-11-17T13:36:12.3113470Z Collecting uvicorn<1.0.0,>=0.24.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 2))
+2026-11-17T13:36:12.3140525Z   Downloading uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+2026-11-17T13:36:12.3271698Z Collecting alembic<2.0.0,>=1.13.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 3))
+2026-11-17T13:36:12.3302931Z   Downloading alembic-1.20.1-py3-none-any.whl.metadata (7.3 kB)
+2026-11-17T13:36:12.3453302Z Collecting redis<7.0.0,>=5.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 4))
+2026-11-17T13:36:12.3481892Z   Downloading redis-6.4.0-py3-none-any.whl.metadata (10 kB)
+2026-11-17T13:36:12.3597619Z Collecting psycopg<4.0.0,>=3.1.0 (from psycopg[binary]<4.0.0,>=3.1.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 5))
+2026-11-17T13:36:12.3622521Z   Downloading psycopg-3.3.9-py3-none-any.whl.metadata (4.4 kB)
+2026-11-17T13:36:12.3735130Z Collecting python-dotenv<2.0.0,>=1.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 6))
+2026-11-17T13:36:12.3759492Z   Downloading python_dotenv-1.2.4-py3-none-any.whl.metadata (29 kB)
+2026-11-17T13:36:12.4897123Z Collecting numpy<2.0.0,>=1.24.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 7))
+2026-11-17T13:36:12.4925222Z   Downloading numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (61 kB)
+2026-11-17T13:36:12.5324306Z Collecting opencv-python<5.0.0,>=4.8.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 8))
+2026-11-17T13:36:12.5351332Z   Downloading opencv_python-4.14.0.94-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:12.6182877Z Collecting scipy<2.0.0,>=1.10.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 9))
+2026-11-17T13:36:12.6209115Z   Downloading scipy-1.17.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+2026-11-17T13:36:12.6369012Z Collecting python-multipart<1.0.0,>=0.0.6 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 10))
+2026-11-17T13:36:12.6397145Z   Downloading python_multipart-0.0.34-py3-none-any.whl.metadata (6.3 kB)
+2026-11-17T13:36:12.6973727Z Collecting pydantic<3.0.0,>=2.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 11))
+2026-11-17T13:36:12.7002053Z   Downloading pydantic-2.14.3-py3-none-any.whl.metadata (141 kB)
+2026-11-17T13:36:12.7116986Z Collecting insightface<1.0.0,>=0.7.3 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:12.7147564Z   Downloading insightface-0.7.3.tar.gz (439 kB)
+2026-11-17T13:36:12.7354104Z   Installing build dependencies: started
+2026-11-17T13:36:14.3376767Z   Installing build dependencies: finished with status 'done'
+2026-11-17T13:36:14.3379808Z   Getting requirements to build wheel: started
+2026-11-17T13:36:16.2976014Z   Getting requirements to build wheel: finished with status 'done'
+2026-11-17T13:36:16.2981297Z   Preparing metadata (pyproject.toml): started
+2026-11-17T13:36:16.7804030Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-11-17T13:36:16.8188223Z Collecting onnxruntime<2.0.0,>=1.15.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 13))
+2026-11-17T13:36:16.8219572Z   Downloading onnxruntime-1.32.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (5.8 kB)
+2026-11-17T13:36:16.8386484Z Collecting qdrant-client<2.0.0,>=1.9.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:16.8417392Z   Downloading qdrant_client-1.20.0-py3-none-any.whl.metadata (11 kB)
+2026-11-17T13:36:17.0317400Z Collecting sqlalchemy<3.0.0,>=2.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 15))
+2026-11-17T13:36:17.0344015Z   Downloading sqlalchemy-2.1.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (9.7 kB)
+2026-11-17T13:36:17.0455312Z Collecting firebase-admin<8.0.0,>=6.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:17.0503347Z   Downloading firebase_admin-7.8.0-py3-none-any.whl.metadata (1.7 kB)
+2026-11-17T13:36:17.0653894Z Collecting pytest>=8.0.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 17))
+2026-11-17T13:36:17.0681471Z   Downloading pytest-9.2.0-py3-none-any.whl.metadata (7.9 kB)
+2026-11-17T13:36:17.0780201Z Collecting httpx>=0.27.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 18))
+2026-11-17T13:36:17.0807943Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-11-17T13:36:17.2732545Z Collecting ruff<1.0.0,>=0.6.0 (from -r requirements-dev.txt (line 4))
+2026-11-17T13:36:17.2762898Z   Downloading ruff-0.17.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+2026-11-17T13:36:17.2877850Z Collecting pip-audit<3.0.0,>=2.7.0 (from -r requirements-dev.txt (line 5))
+2026-11-17T13:36:17.2903112Z   Downloading pip_audit-2.10.1-py3-none-any.whl.metadata (28 kB)
+2026-11-17T13:36:17.3055311Z Collecting starlette>=0.46.0 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3081187Z   Downloading starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+2026-11-17T13:36:17.3190023Z Collecting anyio>=4.1.0 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3223951Z   Downloading anyio-4.16.0-py3-none-any.whl.metadata (4.7 kB)
+2026-11-17T13:36:17.3337534Z Collecting typing-extensions>=4.8.0 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3363713Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+2026-11-17T13:36:17.3433161Z Collecting typing-inspection>=0.4.2 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3458261Z   Downloading typing_inspection-0.4.5-py3-none-any.whl.metadata (2.6 kB)
+2026-11-17T13:36:17.3523886Z Collecting annotated-doc>=0.0.2 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3550038Z   Downloading annotated_doc-0.0.6-py3-none-any.whl.metadata (6.5 kB)
+2026-11-17T13:36:17.3655828Z Collecting opentelemetry-api>=1.44.0 (from fastapi<1.0.0,>=0.104.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 1))
+2026-11-17T13:36:17.3683343Z   Downloading opentelemetry_api-1.45.2-py3-none-any.whl.metadata (1.4 kB)
+2026-11-17T13:36:17.3787037Z Collecting click>=7.0 (from uvicorn<1.0.0,>=0.24.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 2))
+2026-11-17T13:36:17.3816329Z   Downloading click-8.5.1-py3-none-any.whl.metadata (2.6 kB)
+2026-11-17T13:36:17.3911379Z Collecting h11>=0.8 (from uvicorn<1.0.0,>=0.24.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 2))
+2026-11-17T13:36:17.3939129Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-11-17T13:36:17.4042200Z Collecting Mako (from alembic<2.0.0,>=1.13.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 3))
+2026-11-17T13:36:17.4068174Z   Downloading mako-1.4.3-py3-none-any.whl.metadata (2.9 kB)
+2026-11-17T13:36:17.4118396Z Collecting opencv-python<5.0.0,>=4.8.0 (from -r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 8))
+2026-11-17T13:36:17.4143457Z   Downloading opencv_python-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:17.4167811Z INFO: pip is looking at multiple versions of opencv-python to determine which version is compatible with other requirements. This could take a while.
+2026-11-17T13:36:17.4198740Z   Downloading opencv_python-4.13.0.90-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:17.4253325Z   Downloading opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:17.4308764Z   Downloading opencv_python-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+2026-11-17T13:36:17.4437620Z Collecting annotated-types>=0.6.0 (from pydantic<3.0.0,>=2.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 11))
+2026-11-17T13:36:17.4463698Z   Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+2026-11-17T13:36:17.8517741Z Collecting pydantic-core==2.50.4 (from pydantic<3.0.0,>=2.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 11))
+2026-11-17T13:36:17.8545883Z   Downloading pydantic_core-2.50.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.6 kB)
+2026-11-17T13:36:17.8908184Z Collecting onnx (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:17.8935358Z   Downloading onnx-1.23.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.7 kB)
+2026-11-17T13:36:17.9113474Z Collecting tqdm (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:17.9140122Z   Downloading tqdm-4.70.1-py3-none-any.whl.metadata (57 kB)
+2026-11-17T13:36:17.9300971Z Collecting requests (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:17.9326839Z   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+2026-11-17T13:36:18.0026707Z Collecting matplotlib (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.0053088Z   Downloading matplotlib-3.11.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (80 kB)
+2026-11-17T13:36:18.1011716Z Collecting Pillow (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.1036324Z   Downloading pillow-13.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.1 kB)
+2026-11-17T13:36:18.1471114Z Collecting scikit-learn (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.1498389Z   Downloading scikit_learn-1.9.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.3 kB)
+2026-11-17T13:36:18.2141690Z Collecting scikit-image (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.2165972Z   Downloading scikit_image-0.26.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (15 kB)
+2026-11-17T13:36:18.2262994Z Collecting easydict (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.2295263Z   Downloading easydict-1.14-py3-none-any.whl.metadata (2.9 kB)
+2026-11-17T13:36:18.3375926Z Collecting cython (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.3387045Z   Using cached cython-3.3.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (13 kB)
+2026-11-17T13:36:18.3502313Z Collecting albumentations (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.3528758Z   Downloading albumentations-2.0.8-py3-none-any.whl.metadata (43 kB)
+2026-11-17T13:36:18.3638735Z Collecting prettytable (from insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:18.3665285Z   Downloading prettytable-3.19.0-py3-none-any.whl.metadata (37 kB)
+2026-11-17T13:36:18.3766635Z Collecting flatbuffers (from onnxruntime<2.0.0,>=1.15.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 13))
+2026-11-17T13:36:18.3792642Z   Downloading flatbuffers-25.12.19-py2.py3-none-any.whl.metadata (1.0 kB)
+2026-11-17T13:36:18.3896560Z Collecting packaging (from onnxruntime<2.0.0,>=1.15.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 13))
+2026-11-17T13:36:18.3923713Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-11-17T13:36:18.4695124Z Collecting protobuf>=4.25.8 (from onnxruntime<2.0.0,>=1.15.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 13))
+2026-11-17T13:36:18.4721165Z   Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+2026-11-17T13:36:18.8232694Z Collecting grpcio>=1.41.0 (from qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:18.8264404Z   Downloading grpcio-1.85.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.8 kB)
+2026-11-17T13:36:18.8376359Z Collecting portalocker<5.0,>=2.7.0 (from qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:18.8405095Z   Downloading portalocker-4.4.2-py3-none-any.whl.metadata (10 kB)
+2026-11-17T13:36:18.8576200Z Collecting urllib3<3,>=1.26.14 (from qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:18.8601962Z   Downloading urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+2026-11-17T13:36:18.8701048Z Collecting cachecontrol>=0.14.4 (from firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:18.8727014Z   Downloading cachecontrol-0.15.0-py3-none-any.whl.metadata (2.5 kB)
+2026-11-17T13:36:18.8891542Z Collecting google-api-core<3.0.0dev,>=2.44.0 (from google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:18.8916708Z   Downloading google_api_core-2.44.0-py3-none-any.whl.metadata (3.2 kB)
+2026-11-17T13:36:18.9035868Z Collecting google-cloud-firestore>=2.34.1 (from firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:18.9061751Z   Downloading google_cloud_firestore-2.34.1-py3-none-any.whl.metadata (9.5 kB)
+2026-11-17T13:36:18.9194354Z Collecting google-cloud-storage>=3.17.1 (from firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:18.9221602Z   Downloading google_cloud_storage-3.17.1-py3-none-any.whl.metadata (14 kB)
+2026-11-17T13:36:18.9343826Z Collecting pyjwt>=2.15.1 (from pyjwt[crypto]>=2.15.1->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:18.9371948Z   Downloading pyjwt-2.15.1-py3-none-any.whl.metadata (3.5 kB)
+2026-11-17T13:36:19.0352189Z Collecting cryptography>=50.0.2 (from firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.0382101Z   Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.4 kB)
+2026-11-17T13:36:19.0517761Z Collecting certifi (from httpx>=0.27.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 18))
+2026-11-17T13:36:19.0544766Z   Downloading certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+2026-11-17T13:36:19.0643387Z Collecting httpcore==1.* (from httpx>=0.27.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 18))
+2026-11-17T13:36:19.0670884Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-11-17T13:36:19.0768838Z Collecting idna (from httpx>=0.27.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 18))
+2026-11-17T13:36:19.0796958Z   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+2026-11-17T13:36:19.0896532Z Collecting h2<5,>=3 (from httpx[http2]>=0.20.0->qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:19.0923485Z   Downloading h2-4.4.1-py3-none-any.whl.metadata (3.8 kB)
+2026-11-17T13:36:19.1098593Z Collecting cyclonedx-python-lib<12,>=5 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1129166Z   Downloading cyclonedx_python_lib-11.12.0-py3-none-any.whl.metadata (6.9 kB)
+2026-11-17T13:36:19.1227289Z Collecting pip-api>=0.0.28 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1253745Z   Downloading pip_api-0.0.35-py3-none-any.whl.metadata (17 kB)
+2026-11-17T13:36:19.1338104Z Collecting pip-requirements-parser>=32.0.0 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1364905Z   Downloading pip_requirements_parser-32.0.1-py3-none-any.whl.metadata (9.3 kB)
+2026-11-17T13:36:19.1544406Z Collecting rich>=12.4 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1570453Z   Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+2026-11-17T13:36:19.1752272Z Collecting tomli>=2.2.1 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1777182Z   Downloading tomli-2.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (10 kB)
+2026-11-17T13:36:19.1858083Z Collecting tomli-w>=1.2.0 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.1885489Z   Downloading tomli_w-1.2.0-py3-none-any.whl.metadata (5.7 kB)
+2026-11-17T13:36:19.2015842Z Collecting platformdirs>=4.2.0 (from pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.2045336Z   Downloading platformdirs-4.14.5-py3-none-any.whl.metadata (5.7 kB)
+2026-11-17T13:36:19.2147291Z Collecting license-expression<31,>=30 (from cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.2176023Z   Downloading license_expression-30.4.4-py3-none-any.whl.metadata (11 kB)
+2026-11-17T13:36:19.2281894Z Collecting packageurl-python<2,>=0.11 (from cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.2309239Z   Downloading packageurl_python-0.17.6-py3-none-any.whl.metadata (5.1 kB)
+2026-11-17T13:36:19.2407813Z Collecting py-serializable<3.0.0,>=2.1.0 (from cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.2435957Z   Downloading py_serializable-2.2.0-py3-none-any.whl.metadata (4.5 kB)
+2026-11-17T13:36:19.2520244Z Collecting sortedcontainers<3.0.0,>=2.4.0 (from cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.2544842Z   Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+2026-11-17T13:36:19.2663200Z Collecting googleapis-common-protos<2.0.0,>=1.69.2 (from google-api-core<3.0.0dev,>=2.44.0->google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.2689679Z   Downloading googleapis_common_protos-1.76.0-py3-none-any.whl.metadata (8.5 kB)
+2026-11-17T13:36:19.3208727Z Collecting proto-plus<2.0.0,>=1.26.1 (from google-api-core<3.0.0dev,>=2.44.0->google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.3235787Z   Downloading proto_plus-1.29.0-py3-none-any.whl.metadata (2.2 kB)
+2026-11-17T13:36:19.3419562Z Collecting google-auth<3.0.0,>=2.14.1 (from google-api-core<3.0.0dev,>=2.44.0->google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.3511839Z   Downloading google_auth-2.62.2-py3-none-any.whl.metadata (6.0 kB)
+2026-11-17T13:36:19.3747889Z Collecting grpcio-status<2.0.0,>=1.59.0 (from google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.3772979Z   Downloading grpcio_status-1.85.1-py3-none-any.whl.metadata (1.3 kB)
+2026-11-17T13:36:19.3892121Z Collecting pyasn1-modules>=0.2.1 (from google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.44.0->google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.3916818Z   Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+2026-11-17T13:36:19.4047765Z Collecting hyperframe<7,>=6.1 (from h2<5,>=3->httpx[http2]>=0.20.0->qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:19.4074159Z   Downloading hyperframe-6.1.0-py3-none-any.whl.metadata (4.3 kB)
+2026-11-17T13:36:19.4150535Z Collecting hpack<5,>=4.2 (from h2<5,>=3->httpx[http2]>=0.20.0->qdrant-client<2.0.0,>=1.9.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 14))
+2026-11-17T13:36:19.4175561Z   Downloading hpack-4.2.0-py3-none-any.whl.metadata (3.3 kB)
+2026-11-17T13:36:19.4275682Z Collecting boolean.py>=4.0 (from license-expression<31,>=30->cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.4299346Z   Downloading boolean_py-5.0-py3-none-any.whl.metadata (2.3 kB)
+2026-11-17T13:36:19.5215805Z Collecting psycopg-binary==3.3.9 (from psycopg[binary]<4.0.0,>=3.1.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 5))
+2026-11-17T13:36:19.5296376Z   Downloading psycopg_binary-3.3.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+2026-11-17T13:36:19.5381902Z Collecting defusedxml<0.8.0,>=0.7.1 (from py-serializable<3.0.0,>=2.1.0->cyclonedx-python-lib<12,>=5->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.5407443Z   Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+2026-11-17T13:36:19.6095813Z Collecting charset_normalizer<4,>=2 (from requests->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:19.6124815Z   Downloading charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (46 kB)
+2026-11-17T13:36:19.6268602Z Collecting iniconfig>=2 (from pytest>=8.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 17))
+2026-11-17T13:36:19.6296136Z   Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+2026-11-17T13:36:19.6383830Z Collecting pluggy<2,>=1.6 (from pytest>=8.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 17))
+2026-11-17T13:36:19.6413790Z   Downloading pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+2026-11-17T13:36:19.6520473Z Collecting pygments>=2.15 (from pytest>=8.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 17))
+2026-11-17T13:36:19.6545835Z   Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-11-17T13:36:19.7028545Z Collecting msgpack<2.0.0,>=0.5.2 (from cachecontrol>=0.14.4->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.7059644Z   Downloading msgpack-1.2.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+2026-11-17T13:36:19.7260946Z Collecting filelock>=3.8.0 (from CacheControl[filecache]>=0.13.0->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.7299549Z   Downloading filelock-4.2.11-py3-none-any.whl.metadata (2.3 kB)
+2026-11-17T13:36:19.8331303Z Collecting cffi>=2.0.0 (from cryptography>=50.0.2->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.8359545Z   Downloading cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+2026-11-17T13:36:19.8445262Z Collecting pycparser (from cffi>=2.0.0->cryptography>=50.0.2->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.8475352Z   Downloading pycparser-3.12-py3-none-any.whl.metadata (9.7 kB)
+2026-11-17T13:36:19.8622288Z Collecting google-cloud-core<3.0.0,>=2.0.0 (from google-cloud-firestore>=2.34.1->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.8649260Z   Downloading google_cloud_core-2.8.0-py3-none-any.whl.metadata (2.9 kB)
+2026-11-17T13:36:19.8793976Z Collecting google-resumable-media<3.0.0,>=2.7.2 (from google-cloud-storage>=3.17.1->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.8819777Z   Downloading google_resumable_media-2.11.0-py3-none-any.whl.metadata (2.3 kB)
+2026-11-17T13:36:19.9105231Z Collecting google-crc32c<2.0.0,>=1.6.0 (from google-cloud-storage>=3.17.1->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.9130566Z   Downloading google_crc32c-1.9.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.2 kB)
+2026-11-17T13:36:19.9182765Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages (from pip-api>=0.0.28->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5)) (26.3)
+2026-11-17T13:36:19.9316976Z Collecting pyparsing (from pip-requirements-parser>=32.0.0->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.9342523Z   Downloading pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+2026-11-17T13:36:19.9501329Z Collecting pyasn1<0.7.0,>=0.6.1 (from pyasn1-modules>=0.2.1->google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.44.0->google-api-core[grpc]<3.0.0dev,>=2.44.0; platform_python_implementation != "PyPy"->firebase-admin<8.0.0,>=6.0.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 16))
+2026-11-17T13:36:19.9526707Z   Downloading pyasn1-0.6.5-py3-none-any.whl.metadata (8.4 kB)
+2026-11-17T13:36:19.9676282Z Collecting markdown-it-py>=2.2.0 (from rich>=12.4->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.9704416Z   Downloading markdown_it_py-4.3.0-py3-none-any.whl.metadata (7.9 kB)
+2026-11-17T13:36:19.9793625Z Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=12.4->pip-audit<3.0.0,>=2.7.0->-r requirements-dev.txt (line 5))
+2026-11-17T13:36:19.9823619Z   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+2026-11-17T13:36:20.0075530Z Collecting PyYAML (from albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.0102963Z   Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-11-17T13:36:20.0237978Z Collecting albucore==0.0.24 (from albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.0264356Z   Downloading albucore-0.0.24-py3-none-any.whl.metadata (5.3 kB)
+2026-11-17T13:36:20.0564117Z Collecting opencv-python-headless>=4.9.0.80 (from albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.0586981Z   Downloading opencv_python_headless-5.0.0.93-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:20.3784592Z Collecting stringzilla>=3.10.4 (from albucore==0.0.24->albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.3828078Z   Downloading stringzilla-5.3.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (56 kB)
+2026-11-17T13:36:20.5874279Z Collecting simsimd>=5.9.2 (from albucore==0.0.24->albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.6051656Z   Downloading simsimd-6.5.16-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (70 kB)
+2026-11-17T13:36:20.6122060Z Collecting opencv-python-headless>=4.9.0.80 (from albumentations->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.6147241Z   Downloading opencv_python_headless-4.14.0.94-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:20.6173710Z INFO: pip is looking at multiple versions of opencv-python-headless to determine which version is compatible with other requirements. This could take a while.
+2026-11-17T13:36:20.6202963Z   Downloading opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:20.6255525Z   Downloading opencv_python_headless-4.13.0.90-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:20.6312750Z   Downloading opencv_python_headless-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+2026-11-17T13:36:20.6369485Z   Downloading opencv_python_headless-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+2026-11-17T13:36:20.6736151Z Collecting MarkupSafe>=2.0 (from Mako->alembic<2.0.0,>=1.13.0->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 3))
+2026-11-17T13:36:20.6765594Z   Downloading markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2026-11-17T13:36:20.7118740Z Collecting contourpy>=1.0.1 (from matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.7144040Z   Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.5 kB)
+2026-11-17T13:36:20.7228747Z Collecting cycler>=0.10 (from matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.7255899Z   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+2026-11-17T13:36:20.8720188Z Collecting fonttools>=4.28.2 (from matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.8749237Z   Downloading fonttools-4.68.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (139 kB)
+2026-11-17T13:36:20.9179218Z Collecting kiwisolver>=1.3.1 (from matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.9207394Z   Downloading kiwisolver-1.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (5.2 kB)
+2026-11-17T13:36:20.9329614Z Collecting python-dateutil>=2.7 (from matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.9357827Z   Downloading python_dateutil-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+2026-11-17T13:36:20.9495748Z Collecting tzdata (from python-dateutil>=2.7->matplotlib->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.9522699Z   Downloading tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+2026-11-17T13:36:20.9720054Z Collecting ml_dtypes>=0.5.4 (from onnx->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:20.9743955Z   Downloading ml_dtypes-0.7.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (11 kB)
+2026-11-17T13:36:20.9809526Z   Downloading ml_dtypes-0.6.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+2026-11-17T13:36:20.9832762Z INFO: pip is looking at multiple versions of ml-dtypes to determine which version is compatible with other requirements. This could take a while.
+2026-11-17T13:36:20.9861923Z   Downloading ml_dtypes-0.5.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.9 kB)
+2026-11-17T13:36:21.0013511Z Collecting wcwidth>=0.3.5 (from prettytable->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0040085Z   Downloading wcwidth-0.9.4-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (23 kB)
+2026-11-17T13:36:21.0215828Z Collecting networkx>=3.0 (from scikit-image->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0241098Z   Downloading networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+2026-11-17T13:36:21.0391384Z Collecting imageio!=2.35.0,>=2.33 (from scikit-image->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0418533Z   Downloading imageio-2.38.2-py3-none-any.whl.metadata (9.7 kB)
+2026-11-17T13:36:21.0612858Z Collecting tifffile>=2022.8.12 (from scikit-image->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0637649Z   Downloading tifffile-2026.3.3-py3-none-any.whl.metadata (31 kB)
+2026-11-17T13:36:21.0750352Z Collecting lazy-loader>=0.4 (from scikit-image->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0775705Z   Downloading lazy_loader-0.6-py3-none-any.whl.metadata (6.0 kB)
+2026-11-17T13:36:21.0945011Z Collecting joblib>=1.4.0 (from scikit-learn->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.0973383Z   Downloading joblib-1.6.0-py3-none-any.whl.metadata (6.5 kB)
+2026-11-17T13:36:21.1170384Z Collecting narwhals>=2.0.1 (from scikit-learn->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.1196543Z   Downloading narwhals-2.28.0-py3-none-any.whl.metadata (15 kB)
+2026-11-17T13:36:21.1280990Z Collecting threadpoolctl>=3.5.0 (from scikit-learn->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.1307142Z   Downloading threadpoolctl-3.8.0-py3-none-any.whl.metadata (29 kB)
+2026-11-17T13:36:21.1408318Z Collecting cloudpickle>=3.0 (from joblib>=1.4.0->scikit-learn->insightface<1.0.0,>=0.7.3->-r /home/runner/work/FaceSnap/FaceSnap/backend/requirements.txt (line 12))
+2026-11-17T13:36:21.1455043Z   Downloading cloudpickle-3.1.2-py3-none-any.whl.metadata (7.1 kB)
+2026-11-17T13:36:21.1551735Z Downloading fastapi-0.163.1-py3-none-any.whl (154 kB)
+2026-11-17T13:36:21.1591485Z Downloading uvicorn-0.54.0-py3-none-any.whl (87 kB)
+2026-11-17T13:36:21.1628258Z Downloading alembic-1.20.1-py3-none-any.whl (270 kB)
+2026-11-17T13:36:21.1668404Z Downloading redis-6.4.0-py3-none-any.whl (279 kB)
+2026-11-17T13:36:21.1710060Z Downloading psycopg-3.3.9-py3-none-any.whl (219 kB)
+2026-11-17T13:36:21.1755445Z Downloading python_dotenv-1.2.4-py3-none-any.whl (23 kB)
+2026-11-17T13:36:21.1799896Z Downloading numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (18.3 MB)
+2026-11-17T13:36:21.2294133Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.3/18.3 MB 394.1 MB/s  0:00:00
+2026-11-17T13:36:21.2321381Z Downloading opencv_python-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (63.0 MB)
+2026-11-17T13:36:21.3843304Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 63.0/63.0 MB 417.8 MB/s  0:00:00
+2026-11-17T13:36:21.3880998Z Downloading scipy-1.17.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.3 MB)
+2026-11-17T13:36:21.4787720Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 395.2 MB/s  0:00:00
+2026-11-17T13:36:21.4817226Z Downloading python_multipart-0.0.34-py3-none-any.whl (32 kB)
+2026-11-17T13:36:21.4861152Z Downloading pydantic-2.14.3-py3-none-any.whl (494 kB)
+2026-11-17T13:36:21.4908322Z Downloading pydantic_core-2.50.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (2.3 MB)
+2026-11-17T13:36:21.4971738Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 414.7 MB/s  0:00:00
+2026-11-17T13:36:21.4998501Z Downloading onnxruntime-1.32.0-cp311-cp311-manylinux_2_28_x86_64.whl (27.8 MB)
+2026-11-17T13:36:21.5800251Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 27.8/27.8 MB 350.5 MB/s  0:00:00
+2026-11-17T13:36:21.5829276Z Downloading qdrant_client-1.20.0-py3-none-any.whl (471 kB)
+2026-11-17T13:36:21.5875774Z Downloading sqlalchemy-2.1.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (4.7 MB)
+2026-11-17T13:36:21.5996084Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 417.5 MB/s  0:00:00
+2026-11-17T13:36:21.6024021Z Downloading firebase_admin-7.8.0-py3-none-any.whl (145 kB)
+2026-11-17T13:36:21.6066354Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-11-17T13:36:21.6104529Z Downloading ruff-0.17.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (10.6 MB)
+2026-11-17T13:36:21.6369403Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.6/10.6 MB 414.3 MB/s  0:00:00
+2026-11-17T13:36:21.6401157Z Downloading pip_audit-2.10.1-py3-none-any.whl (62 kB)
+2026-11-17T13:36:21.6443628Z Downloading cyclonedx_python_lib-11.12.0-py3-none-any.whl (529 kB)
+2026-11-17T13:36:21.6477415Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 529.5/529.5 kB 145.0 MB/s  0:00:00
+2026-11-17T13:36:21.6504813Z Downloading google_api_core-2.44.0-py3-none-any.whl (225 kB)
+2026-11-17T13:36:21.6545896Z Downloading google_auth-2.62.2-py3-none-any.whl (270 kB)
+2026-11-17T13:36:21.6588753Z Downloading googleapis_common_protos-1.76.0-py3-none-any.whl (307 kB)
+2026-11-17T13:36:21.6637564Z Downloading grpcio-1.85.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.4 MB)
+2026-11-17T13:36:21.6829997Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.4/7.4 MB 409.6 MB/s  0:00:00
+2026-11-17T13:36:21.6855290Z Downloading grpcio_status-1.85.1-py3-none-any.whl (14 kB)
+2026-11-17T13:36:21.6897626Z Downloading h2-4.4.1-py3-none-any.whl (62 kB)
+2026-11-17T13:36:21.6938443Z Downloading hpack-4.2.0-py3-none-any.whl (34 kB)
+2026-11-17T13:36:21.6978057Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-11-17T13:36:21.7015048Z Downloading hyperframe-6.1.0-py3-none-any.whl (13 kB)
+2026-11-17T13:36:21.7058606Z Downloading license_expression-30.4.4-py3-none-any.whl (120 kB)
+2026-11-17T13:36:21.7100859Z Downloading opentelemetry_api-1.45.2-py3-none-any.whl (60 kB)
+2026-11-17T13:36:21.7138742Z Downloading packageurl_python-0.17.6-py3-none-any.whl (36 kB)
+2026-11-17T13:36:21.7175121Z Downloading portalocker-4.4.2-py3-none-any.whl (129 kB)
+2026-11-17T13:36:21.7213960Z Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)
+2026-11-17T13:36:21.7253206Z Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)
+2026-11-17T13:36:21.7303876Z Downloading psycopg_binary-3.3.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.9 MB)
+2026-11-17T13:36:21.7406340Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.9/3.9 MB 439.4 MB/s  0:00:00
+2026-11-17T13:36:21.7432017Z Downloading py_serializable-2.2.0-py3-none-any.whl (23 kB)
+2026-11-17T13:36:21.7467434Z Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+2026-11-17T13:36:21.7504702Z Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+2026-11-17T13:36:21.7544506Z Downloading charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (269 kB)
+2026-11-17T13:36:21.7584114Z Downloading idna-3.20-py3-none-any.whl (69 kB)
+2026-11-17T13:36:21.7623541Z Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+2026-11-17T13:36:21.7667212Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+2026-11-17T13:36:21.7706646Z Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)
+2026-11-17T13:36:21.7744542Z Downloading pytest-9.2.0-py3-none-any.whl (411 kB)
+2026-11-17T13:36:21.7789957Z Downloading pluggy-1.7.0-py3-none-any.whl (27 kB)
+2026-11-17T13:36:21.7833557Z Downloading annotated_doc-0.0.6-py3-none-any.whl (5.3 kB)
+2026-11-17T13:36:21.7869879Z Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+2026-11-17T13:36:21.7908845Z Downloading anyio-4.16.0-py3-none-any.whl (134 kB)
+2026-11-17T13:36:21.7946289Z Downloading boolean_py-5.0-py3-none-any.whl (26 kB)
+2026-11-17T13:36:21.7983239Z Downloading cachecontrol-0.15.0-py3-none-any.whl (22 kB)
+2026-11-17T13:36:21.8021674Z Downloading msgpack-1.2.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (480 kB)
+2026-11-17T13:36:21.8071145Z Downloading certifi-2026.10.23-py3-none-any.whl (135 kB)
+2026-11-17T13:36:21.8110904Z Downloading click-8.5.1-py3-none-any.whl (126 kB)
+2026-11-17T13:36:21.8159293Z Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)
+2026-11-17T13:36:21.8281105Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.8/4.8 MB 412.3 MB/s  0:00:00
+2026-11-17T13:36:21.8306942Z Downloading cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (217 kB)
+2026-11-17T13:36:21.8348323Z Downloading filelock-4.2.11-py3-none-any.whl (222 kB)
+2026-11-17T13:36:21.8387621Z Downloading google_cloud_firestore-2.34.1-py3-none-any.whl (443 kB)
+2026-11-17T13:36:21.8432463Z Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)
+2026-11-17T13:36:21.8469125Z Downloading google_cloud_storage-3.17.1-py3-none-any.whl (345 kB)
+2026-11-17T13:36:21.8511397Z Downloading google_crc32c-1.9.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)
+2026-11-17T13:36:21.8549134Z Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)
+2026-11-17T13:36:21.8586157Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-11-17T13:36:21.8625010Z Downloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+2026-11-17T13:36:21.8662783Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+2026-11-17T13:36:21.8702984Z Downloading pip_api-0.0.35-py3-none-any.whl (123 kB)
+2026-11-17T13:36:21.8746660Z Downloading pip_requirements_parser-32.0.1-py3-none-any.whl (35 kB)
+2026-11-17T13:36:21.8785233Z Downloading platformdirs-4.14.5-py3-none-any.whl (35 kB)
+2026-11-17T13:36:21.8822029Z Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+2026-11-17T13:36:21.8867190Z Downloading pyasn1-0.6.5-py3-none-any.whl (84 kB)
+2026-11-17T13:36:21.8907061Z Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-11-17T13:36:21.8957251Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 287.4 MB/s  0:00:00
+2026-11-17T13:36:21.8982517Z Downloading pyjwt-2.15.1-py3-none-any.whl (33 kB)
+2026-11-17T13:36:21.9019350Z Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+2026-11-17T13:36:21.9061307Z Downloading markdown_it_py-4.3.0-py3-none-any.whl (96 kB)
+2026-11-17T13:36:21.9101389Z Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+2026-11-17T13:36:21.9141767Z Downloading starlette-1.10.0-py3-none-any.whl (80 kB)
+2026-11-17T13:36:21.9184457Z Downloading tomli-2.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (276 kB)
+2026-11-17T13:36:21.9228237Z Downloading tomli_w-1.2.0-py3-none-any.whl (6.7 kB)
+2026-11-17T13:36:21.9264772Z Downloading typing_inspection-0.4.5-py3-none-any.whl (14 kB)
+2026-11-17T13:36:21.9303470Z Downloading albumentations-2.0.8-py3-none-any.whl (369 kB)
+2026-11-17T13:36:21.9356978Z Downloading albucore-0.0.24-py3-none-any.whl (15 kB)
+2026-11-17T13:36:21.9401444Z Downloading opencv_python_headless-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (50.0 MB)
+2026-11-17T13:36:22.0616357Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.0/50.0 MB 414.6 MB/s  0:00:00
+2026-11-17T13:36:22.0669063Z Downloading simsimd-6.5.16-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (583 kB)
+2026-11-17T13:36:22.0700235Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 583.8/583.8 kB 178.7 MB/s  0:00:00
+2026-11-17T13:36:22.0758989Z Downloading stringzilla-5.3.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (4.2 MB)
+2026-11-17T13:36:22.1002505Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 171.4 MB/s  0:00:00
+2026-11-17T13:36:22.1011367Z Using cached cython-3.3.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.5 MB)
+2026-11-17T13:36:22.1050146Z Downloading easydict-1.14-py3-none-any.whl (6.9 kB)
+2026-11-17T13:36:22.1085660Z Downloading flatbuffers-25.12.19-py2.py3-none-any.whl (26 kB)
+2026-11-17T13:36:22.1124612Z Downloading mako-1.4.3-py3-none-any.whl (80 kB)
+2026-11-17T13:36:22.1166301Z Downloading markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2026-11-17T13:36:22.1205764Z Downloading matplotlib-3.11.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (9.9 MB)
+2026-11-17T13:36:22.1449186Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.9/9.9 MB 411.1 MB/s  0:00:00
+2026-11-17T13:36:22.1479991Z Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (355 kB)
+2026-11-17T13:36:22.1524187Z Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+2026-11-17T13:36:22.1572648Z Downloading fonttools-4.68.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)
+2026-11-17T13:36:22.1717043Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 418.5 MB/s  0:00:00
+2026-11-17T13:36:22.1743528Z Downloading kiwisolver-1.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+2026-11-17T13:36:22.1801361Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 368.6 MB/s  0:00:00
+2026-11-17T13:36:22.1825743Z Downloading pillow-13.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.1 MB)
+2026-11-17T13:36:22.2004281Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 417.4 MB/s  0:00:00
+2026-11-17T13:36:22.2030450Z Downloading pyparsing-3.3.3-py3-none-any.whl (126 kB)
+2026-11-17T13:36:22.2073004Z Downloading python_dateutil-4.0.0-py3-none-any.whl (92 kB)
+2026-11-17T13:36:22.2153587Z Downloading onnx-1.23.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (8.9 MB)
+2026-11-17T13:36:22.2528915Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.9/8.9 MB 238.1 MB/s  0:00:00
+2026-11-17T13:36:22.2558058Z Downloading ml_dtypes-0.5.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (5.0 MB)
+2026-11-17T13:36:22.2725129Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.0/5.0 MB 320.5 MB/s  0:00:00
+2026-11-17T13:36:22.2750991Z Downloading prettytable-3.19.0-py3-none-any.whl (37 kB)
+2026-11-17T13:36:22.2796943Z Downloading wcwidth-0.9.4-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (785 kB)
+2026-11-17T13:36:22.2830037Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 785.9/785.9 kB 253.6 MB/s  0:00:00
+2026-11-17T13:36:22.2857903Z Downloading pycparser-3.12-py3-none-any.whl (62 kB)
+2026-11-17T13:36:22.2903611Z Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+2026-11-17T13:36:22.2939595Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 249.4 MB/s  0:00:00
+2026-11-17T13:36:22.2967827Z Downloading scikit_image-0.26.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (13.7 MB)
+2026-11-17T13:36:22.3466816Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.7/13.7 MB 281.2 MB/s  0:00:00
+2026-11-17T13:36:22.3495957Z Downloading imageio-2.38.2-py3-none-any.whl (328 kB)
+2026-11-17T13:36:22.3540001Z Downloading lazy_loader-0.6-py3-none-any.whl (8.8 kB)
+2026-11-17T13:36:22.3576765Z Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
+2026-11-17T13:36:22.3630327Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 448.2 MB/s  0:00:00
+2026-11-17T13:36:22.3659533Z Downloading tifffile-2026.3.3-py3-none-any.whl (243 kB)
+2026-11-17T13:36:22.3700580Z Downloading scikit_learn-1.9.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (9.3 MB)
+2026-11-17T13:36:22.3933792Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.3/9.3 MB 411.9 MB/s  0:00:00
+2026-11-17T13:36:22.3959554Z Downloading joblib-1.6.0-py3-none-any.whl (306 kB)
+2026-11-17T13:36:22.4005829Z Downloading cloudpickle-3.1.2-py3-none-any.whl (22 kB)
+2026-11-17T13:36:22.4047369Z Downloading narwhals-2.28.0-py3-none-any.whl (490 kB)
+2026-11-17T13:36:22.4091951Z Downloading threadpoolctl-3.8.0-py3-none-any.whl (32 kB)
+2026-11-17T13:36:22.4131037Z Downloading tqdm-4.70.1-py3-none-any.whl (80 kB)
+2026-11-17T13:36:22.4187321Z Downloading tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+2026-11-17T13:36:22.8556505Z Building wheels for collected packages: insightface
+2026-11-17T13:36:22.8559896Z   Building wheel for insightface (pyproject.toml): started
+2026-11-17T13:36:30.2977061Z   Building wheel for insightface (pyproject.toml): finished with status 'done'
+2026-11-17T13:36:30.2993323Z   Created wheel for insightface: filename=insightface-0.7.3-cp311-cp311-linux_x86_64.whl size=1137225 sha256=8bffb846f3b028eb5ba424a47e7f63b1dfe89196342c503810cb807d855e83d8
+2026-11-17T13:36:30.2994437Z   Stored in directory: /home/runner/.cache/pip/wheels/27/d8/22/f52d858d16cd06e7b2e6aad34a1777dcfaf000be833bbf8146
+2026-11-17T13:36:30.3009515Z Successfully built insightface
+2026-11-17T13:36:30.4601294Z Installing collected packages: sortedcontainers, simsimd, flatbuffers, easydict, boolean.py, wcwidth, urllib3, tzdata, typing-extensions, tqdm, tomli-w, tomli, threadpoolctl, stringzilla, ruff, redis, PyYAML, python-multipart, python-dotenv, pyparsing, pyjwt, pygments, pycparser, pyasn1, psycopg-binary, protobuf, portalocker, pluggy, platformdirs, pip-api, Pillow, packaging, packageurl-python, numpy, networkx, narwhals, msgpack, mdurl, MarkupSafe, license-expression, kiwisolver, iniconfig, idna, hyperframe, hpack, h11, google-crc32c, fonttools, filelock, defusedxml, cython, cycler, cloudpickle, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, tifffile, sqlalchemy, scipy, requests, python-dateutil, pytest, pydantic-core, pyasn1-modules, py-serializable, psycopg, proto-plus, prettytable, pip-requirements-parser, opentelemetry-api, opencv-python-headless, opencv-python, onnxruntime, ml_dtypes, markdown-it-py, Mako, lazy-loader, joblib, imageio, httpcore, h2, grpcio, googleapis-common-protos, google-resumable-media, contourpy, cffi, anyio, starlette, scikit-learn, scikit-image, rich, pydantic, onnx, matplotlib, httpx, grpcio-status, cyclonedx-python-lib, cryptography, cachecontrol, alembic, albucore, google-auth, fastapi, albumentations, qdrant-client, pip-audit, insightface, google-api-core, google-cloud-core, google-cloud-storage, google-cloud-firestore, firebase-admin
+2026-11-17T13:36:46.0152834Z 
+2026-11-17T13:36:46.0184458Z Successfully installed Mako-1.4.3 MarkupSafe-3.0.4 Pillow-13.0.0 PyYAML-6.0.3 albucore-0.0.24 albumentations-2.0.8 alembic-1.20.1 annotated-doc-0.0.6 annotated-types-0.8.0 anyio-4.16.0 boolean.py-5.0 cachecontrol-0.15.0 certifi-2026.10.23 cffi-2.1.1 charset_normalizer-3.5.2 click-8.5.1 cloudpickle-3.1.2 contourpy-1.3.3 cryptography-50.0.2 cycler-0.12.1 cyclonedx-python-lib-11.12.0 cython-3.3.1 defusedxml-0.7.1 easydict-1.14 fastapi-0.163.1 filelock-4.2.11 firebase-admin-7.8.0 flatbuffers-25.12.19 fonttools-4.68.0 google-api-core-2.44.0 google-auth-2.62.2 google-cloud-core-2.8.0 google-cloud-firestore-2.34.1 google-cloud-storage-3.17.1 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.76.0 grpcio-1.85.1 grpcio-status-1.85.1 h11-0.16.0 h2-4.4.1 hpack-4.2.0 httpcore-1.0.9 httpx-0.28.1 hyperframe-6.1.0 idna-3.20 imageio-2.38.2 iniconfig-2.3.1 insightface-0.7.3 joblib-1.6.0 kiwisolver-1.5.1 lazy-loader-0.6 license-expression-30.4.4 markdown-it-py-4.3.0 matplotlib-3.11.2 mdurl-0.1.2 ml_dtypes-0.5.4 msgpack-1.2.4 narwhals-2.28.0 networkx-3.6.1 numpy-1.26.4 onnx-1.23.2 onnxruntime-1.32.0 opencv-python-4.11.0.86 opencv-python-headless-4.11.0.86 opentelemetry-api-1.45.2 packageurl-python-0.17.6 packaging-26.3 pip-api-0.0.35 pip-audit-2.10.1 pip-requirements-parser-32.0.1 platformdirs-4.14.5 pluggy-1.7.0 portalocker-4.4.2 prettytable-3.19.0 proto-plus-1.29.0 protobuf-7.36.2 psycopg-3.3.9 psycopg-binary-3.3.9 py-serializable-2.2.0 pyasn1-0.6.5 pyasn1-modules-0.4.2 pycparser-3.12 pydantic-2.14.3 pydantic-core-2.50.4 pygments-2.21.0 pyjwt-2.15.1 pyparsing-3.3.3 pytest-9.2.0 python-dateutil-4.0.0 python-dotenv-1.2.4 python-multipart-0.0.34 qdrant-client-1.20.0 redis-6.4.0 requests-2.34.2 rich-15.0.0 ruff-0.17.5 scikit-image-0.26.0 scikit-learn-1.9.1 scipy-1.17.1 simsimd-6.5.16 sortedcontainers-2.4.0 sqlalchemy-2.1.9 starlette-1.10.0 stringzilla-5.3.2 threadpoolctl-3.8.0 tifffile-2026.3.3 tomli-2.5.0 tomli-w-1.2.0 tqdm-4.70.1 typing-extensions-4.16.0 typing-inspection-0.4.5 tzdata-2026.6 urllib3-2.8.0 uvicorn-0.54.0 wcwidth-0.9.4
+2026-11-17T13:36:46.3293281Z ##[group]Run python -m ruff check app tests scripts
+2026-11-17T13:36:46.3293672Z [36;1mpython -m ruff check app tests scripts[0m
+2026-11-17T13:36:46.3312057Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:36:46.3312350Z env:
+2026-11-17T13:36:46.3312626Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3313058Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:36:46.3313455Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3313812Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3314167Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3314520Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:36:46.3314879Z ##[endgroup]
+2026-11-17T13:36:46.3578631Z All checks passed!
+2026-11-17T13:36:46.3602548Z ##[group]Run python -m pip_audit --local --skip-editable --progress-spinner off
+2026-11-17T13:36:46.3603060Z [36;1mpython -m pip_audit --local --skip-editable --progress-spinner off[0m
+2026-11-17T13:36:46.3618925Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:36:46.3619211Z env:
+2026-11-17T13:36:46.3619485Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3619862Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:36:46.3620263Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3620616Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3621197Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:46.3621543Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:36:46.3621845Z ##[endgroup]
+2026-11-17T13:36:47.5568018Z No known vulnerabilities found
+2026-11-17T13:36:47.6027665Z ##[group]Run python -m pytest -q
+2026-11-17T13:36:47.6027999Z [36;1mpython -m pytest -q[0m
+2026-11-17T13:36:47.6046643Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:36:47.6046899Z env:
+2026-11-17T13:36:47.6047158Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:47.6047566Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:36:47.6047935Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:47.6048328Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:47.6048662Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:36:47.6049102Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:36:47.6049415Z ##[endgroup]
+2026-11-17T13:37:00.1919552Z ........................................................................ [ 67%]
+2026-11-17T13:37:00.9904972Z ...........................F.......                                      [100%]
+2026-11-17T13:37:00.9906034Z =================================== FAILURES ===================================
+2026-11-17T13:37:00.9906426Z ___________________ test_notifier_cooldown_suppresses_repeat ___________________
+2026-11-17T13:37:00.9906644Z 
+2026-11-17T13:37:00.9906853Z monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7eedc0b16690>
+2026-11-17T13:37:00.9907126Z 
+2026-11-17T13:37:00.9907299Z     def test_notifier_cooldown_suppresses_repeat(monkeypatch):
+2026-11-17T13:37:00.9907738Z         monkeypatch.setattr(notifier, "ALERT_WEBHOOK_URL", "http://example.test/hook")
+2026-11-17T13:37:00.9908204Z         monkeypatch.setattr(notifier, "ALERT_COOLDOWN_SECONDS", 10_000)
+2026-11-17T13:37:00.9908556Z         notifier.reset_cooldowns()
+2026-11-17T13:37:00.9908920Z         monkeypatch.setattr(notifier, "_deliver", lambda url, payload: True)
+2026-11-17T13:37:00.9909309Z >       assert notifier.notify("e", {}) is True
+2026-11-17T13:37:00.9909646Z E       AssertionError: assert False is True
+2026-11-17T13:37:00.9910018Z E        +  where False = <function notify at 0x7eee0e864220>('e', {})
+2026-11-17T13:37:00.9910379Z E        +    where <function notify at 0x7eee0e864220> = notifier.notify
+2026-11-17T13:37:00.9910612Z 
+2026-11-17T13:37:00.9911072Z tests/test_sprint_features.py:128: AssertionError
+2026-11-17T13:37:00.9911429Z =============================== warnings summary ===============================
+2026-11-17T13:37:00.9911878Z ../../../../../../opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/fastapi/testclient.py:1
+2026-11-17T13:37:00.9912672Z   /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+2026-11-17T13:37:00.9913389Z     from starlette.testclient import TestClient as TestClient  # noqa
+2026-11-17T13:37:00.9913629Z 
+2026-11-17T13:37:00.9913988Z ../../../../../../opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py:197
+2026-11-17T13:37:00.9915062Z   /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py:197: UserWarning: Specified provider 'CUDAExecutionProvider' is not in available provider names.Available providers: 'AzureExecutionProvider, CPUExecutionProvider'
+2026-11-17T13:37:00.9915915Z     warnings.warn(
+2026-11-17T13:37:00.9916056Z 
+2026-11-17T13:37:00.9916151Z app/main.py:137
+2026-11-17T13:37:00.9916480Z   /home/runner/work/FaceSnap/FaceSnap/backend/app/main.py:137: DeprecationWarning: 
+2026-11-17T13:37:00.9916886Z           on_event is deprecated, use lifespan event handlers instead.
+2026-11-17T13:37:00.9917266Z   
+2026-11-17T13:37:00.9917479Z           Read more about it in the
+2026-11-17T13:37:00.9917853Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-11-17T13:37:00.9918207Z           
+2026-11-17T13:37:00.9918749Z     @app.on_event("startup")
+2026-11-17T13:37:00.9918957Z 
+2026-11-17T13:37:00.9919200Z ../../../../../../opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/fastapi/applications.py:4723
+2026-11-17T13:37:00.9919748Z ../../../../../../opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/fastapi/applications.py:4723
+2026-11-17T13:37:00.9920328Z   /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/fastapi/applications.py:4723: DeprecationWarning: 
+2026-11-17T13:37:00.9921004Z           on_event is deprecated, use lifespan event handlers instead.
+2026-11-17T13:37:00.9921309Z   
+2026-11-17T13:37:00.9921544Z           Read more about it in the
+2026-11-17T13:37:00.9921987Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-11-17T13:37:00.9922339Z           
+2026-11-17T13:37:00.9922621Z     return self.router.on_event(event_type)  # ty: ignore[deprecated]
+2026-11-17T13:37:00.9922914Z 
+2026-11-17T13:37:00.9922999Z app/main.py:152
+2026-11-17T13:37:00.9923367Z   /home/runner/work/FaceSnap/FaceSnap/backend/app/main.py:152: DeprecationWarning: 
+2026-11-17T13:37:00.9923780Z           on_event is deprecated, use lifespan event handlers instead.
+2026-11-17T13:37:00.9924077Z   
+2026-11-17T13:37:00.9924291Z           Read more about it in the
+2026-11-17T13:37:00.9924667Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-11-17T13:37:00.9925026Z           
+2026-11-17T13:37:00.9925236Z     @app.on_event("shutdown")
+2026-11-17T13:37:00.9925398Z 
+2026-11-17T13:37:00.9925553Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2026-11-17T13:37:00.9926013Z =========================== short test summary info ============================
+2026-11-17T13:37:00.9926620Z FAILED tests/test_sprint_features.py::test_notifier_cooldown_suppresses_repeat - AssertionError: assert False is True
+2026-11-17T13:37:00.9927120Z  +  where False = <function notify at 0x7eee0e864220>('e', {})
+2026-11-17T13:37:00.9927472Z  +    where <function notify at 0x7eee0e864220> = notifier.notify
+2026-11-17T13:37:00.9927784Z 1 failed, 106 passed, 6 warnings in 12.69s
+2026-11-17T13:37:01.3932295Z ##[error]Process completed with exit code 1.
+2026-11-17T13:37:01.3979978Z ##[group]Run rm -f _ci_verify.db
+2026-11-17T13:37:01.3980297Z [36;1mrm -f _ci_verify.db[0m
+2026-11-17T13:37:01.3999683Z shell: /usr/bin/bash -e {0}
+2026-11-17T13:37:01.3999950Z env:
+2026-11-17T13:37:01.4000238Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:37:01.4000785Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-17T13:37:01.4001184Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:37:01.4001570Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:37:01.4001913Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-17T13:37:01.4002335Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-17T13:37:01.4002643Z ##[endgroup]
+2026-11-17T13:37:01.4138222Z Post job cleanup.
+2026-11-17T13:37:01.4772062Z [command]/usr/bin/git version
+2026-11-17T13:37:01.4801153Z git version 2.56.1
+2026-11-17T13:37:01.4841811Z Temporarily overriding HOME='/home/runner/work/_temp/b9915e25-ce7a-48f7-91f7-9079c28be864' before making global git config changes
+2026-11-17T13:37:01.4842410Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-17T13:37:01.4842973Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/FaceSnap/FaceSnap
+2026-11-17T13:37:01.4855694Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-17T13:37:01.4880257Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-17T13:37:01.5070322Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-17T13:37:01.5086423Z http.https://github.com/.extraheader
+2026-11-17T13:37:01.5093494Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-17T13:37:01.5117721Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-17T13:37:01.5317022Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-17T13:37:01.5338195Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-17T13:37:01.5628847Z Cleaning up orphan processes
+2026-11-17T13:37:01.5895349Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
