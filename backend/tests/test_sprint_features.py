@@ -1,7 +1,5 @@
 """Tests for sprint features: alerting, review queue, drift histogram, model version, CSV reports."""
 import base64
-import csv
-import io
 
 import pytest
 from fastapi.testclient import TestClient
