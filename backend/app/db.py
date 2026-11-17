@@ -116,6 +116,10 @@ class Student(Base):
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    # Which recognition model produced the enrolled embedding. Lets an institution
+    # tell which students need re-enrollment after a model swap instead of
+    # guessing from enrollment dates.
+    model_version: Mapped[str | None] = mapped_column(String(60))
 
     user: Mapped[User] = relationship(back_populates="student")
     department_ref: Mapped[Department | None] = relationship(back_populates="students")
@@ -208,6 +212,29 @@ class AuditLog(Base):
     entity: Mapped[str] = mapped_column(String(60))
     entity_id: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class DetectionReview(Base):
+    """Queue of faces detected without a confident match.
+
+    Unmatched detections are persisted (without the biometric image) so staff can
+    review, annotate and resolve them later instead of silently dropping them.
+    The embedding itself is never stored here; only the nearest candidate uid and
+    its distance, if any.
+    """
+
+    __tablename__ = "detection_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    camera_id: Mapped[int | None] = mapped_column(ForeignKey("cameras.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    nearest_uid: Mapped[str | None] = mapped_column(String(128))
+    nearest_distance: Mapped[float | None] = mapped_column(Float)
+    note: Mapped[str | None] = mapped_column(Text)
+    resolved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
 def _ensure_daily_unique_index() -> None:

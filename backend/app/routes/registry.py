@@ -8,15 +8,17 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
+import csv
+import io
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_row, require_roles
-from app.config import CONSENT_VERSION, DUPLICATE_FACE_DISTANCE
+from app.config import CONSENT_VERSION, DUPLICATE_FACE_DISTANCE, MODEL_VERSION
 from app.db import (
     Attendance,
     AuditLog,
@@ -107,6 +109,7 @@ def student_dict(student: Student) -> dict:
         "registeredAt": _iso(student.enrolled_at),
         "hasFaceImage": bool(student.face_image_key),
         "consentVersion": student.consent_version,
+        "modelVersion": student.model_version,
     }
 
 
@@ -320,6 +323,10 @@ def enroll(
         student.consent_version = CONSENT_VERSION
         student.consent_at = utcnow()
 
+    # Record which model produced this embedding so a future model swap can
+    # identify rows that need re-enrollment/backfill.
+    student.model_version = MODEL_VERSION
+
     student.face_image_key = image_store.save(student.id, payload.image_base64)
     db.flush()
 
@@ -330,6 +337,7 @@ def enroll(
             "uid": target_uid,
             "name": student.name,
             "roll_no": student.roll_number,
+            "model_version": MODEL_VERSION,
         },
     )
 
@@ -419,6 +427,7 @@ def export_student_data(
         "attendance": [attendance_dict(record) for record in records],
         "biometric": {
             "face_image_included": False,
+            "model_version": student.model_version,
             "note": "Enrollment photo is available to the owner at /api/students/me/face.",
         },
     }
@@ -762,6 +771,71 @@ def list_leave(
 
 
 # ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+@router.get("/api/reports/attendance")
+def attendance_report(
+    user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: Session = Depends(get_db),
+    student_uid: str | None = Query(default=None, max_length=128),
+    method: str | None = Query(default=None, max_length=30),
+    session_id: int | None = None,
+    department: str | None = Query(default=None, max_length=120),
+    date_from: datetime | None = Query(default=None, alias="from"),
+    date_to: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(default=5000, ge=1, le=50000),
+):
+    stmt = select(Attendance).join(Student).order_by(Attendance.captured_at.desc()).limit(limit)
+    if student_uid:
+        stmt = stmt.where(Student.user_id == student_uid)
+    if method:
+        stmt = stmt.where(Attendance.method == method)
+    if session_id is not None:
+        stmt = stmt.where(Attendance.session_id == session_id)
+    if department:
+        stmt = stmt.where(Student.department == department)
+    if date_from:
+        stmt = stmt.where(Attendance.captured_at >= (to_naive_utc(date_from) or utcnow()))
+    if date_to:
+        stmt = stmt.where(Attendance.captured_at <= (to_naive_utc(date_to) or utcnow()))
+
+    rows = db.scalars(stmt).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "attendance_id", "student_uid", "student_name", "roll_number", "department",
+        "captured_at", "method", "session_id", "camera_id", "liveness_score",
+        "distance", "recorded_by",
+    ])
+    for record in rows:
+        student = record.student
+        writer.writerow([
+            record.id,
+            student.user_id,
+            student.name,
+            student.roll_number,
+            student.department,
+            _iso(record.captured_at),
+            record.method,
+            record.session_id,
+            record.camera_id,
+            record.liveness_score,
+            record.distance,
+            record.recorded_by,
+        ])
+
+    _audit(db, user, "report.attendance", "attendance", None)
+    db.commit()
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="attendance_report.csv"'},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Maintenance
 # ---------------------------------------------------------------------------
 @router.post("/api/admin/backfill-embeddings")
@@ -786,8 +860,9 @@ def backfill_embeddings(
         vector_service.upsert(
             uid=student.user_id,
             embedding=embedding,
-            payload={"uid": student.user_id, "name": student.name, "roll_no": student.roll_number},
+            payload={"uid": student.user_id, "name": student.name, "roll_no": student.roll_number, "model_version": MODEL_VERSION},
         )
+        student.model_version = MODEL_VERSION
         indexed += 1
 
     _audit(db, user, "embeddings.backfill", "student", None)

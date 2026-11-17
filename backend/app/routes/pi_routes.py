@@ -5,9 +5,11 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.auth import require_camera_caller
-from app.config import ARCFACE_THRESHOLD
+from app.config import ARCFACE_THRESHOLD, REVIEW_QUEUE_ENABLED
+from app.db import DetectionReview, get_db
 from app.services.camera import pi_camera
 from app.services.face_service import face_service
 from app.services.vector_service import vector_service
@@ -56,7 +58,7 @@ def pi_capture_frame(_=Depends(require_camera_caller)):
 
 
 @router.get("/api/pi/detect")
-def pi_detect_faces(_=Depends(require_camera_caller)):
+def pi_detect_faces(_=Depends(require_camera_caller), db: Session = Depends(get_db)):
     """Real recognition: detect faces in the Pi frame and match against enrolled embeddings.
 
     Never fabricates an identity. Unknown faces return match=None.
@@ -97,6 +99,28 @@ def pi_detect_faces(_=Depends(require_camera_caller)):
                 "distance": match["distance"],
             } if match else None,
         })
+        if match is not None:
+            try:
+                from app.metrics import metrics
+
+                metrics.record_match_distance(match["distance"], route="/api/pi/detect")
+            except Exception:
+                pass
+        else:
+            if REVIEW_QUEUE_ENABLED:
+                try:
+                    loose = vector_service.search(normalized, limit=1, score_threshold=0.0)
+                    nearest = loose[0] if loose else None
+                    db.add(DetectionReview(
+                        camera_id=None,
+                        status="pending",
+                        nearest_uid=nearest["uid"] if nearest else None,
+                        nearest_distance=nearest["distance"] if nearest else None,
+                        created_by=None,
+                    ))
+                    db.commit()
+                except Exception:
+                    db.rollback()
 
     return {"faces_detected": len(faces), "frame_width": w_img, "frame_height": h_img,
             "face_data": face_data, "message": f"Successfully detected {len(faces)} face(s)."}

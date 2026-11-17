@@ -46,6 +46,9 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited |
 | POST | `/api/sync` | Staff | bulk import | legacy bulk path; prefer enroll/backfill |
 | POST | `/api/detect_webcam` | Staff | frame → detections + identities | rate-limited |
+| GET | `/api/detections/review` | Staff | unmatched detection queue | filters: `status`, `limit` |
+| PATCH | `/api/detections/review/{id}` | Staff | resolve/dismiss review item | audited |
+| GET | `/api/reports/attendance` | Staff | CSV attendance export | filters: `student_uid`, `method`, `session_id`, `department`, `from`, `to`; audited |
 | GET | `/api/pi/health` | Staff/Key | camera/engine state | |
 | GET | `/api/pi/stream` | Staff/Key | MJPEG | browsers cannot attach a bearer header to `<img>`; use a proxy or the capture/detect endpoints |
 | GET | `/api/pi/capture` | Staff/Key | still frame | |

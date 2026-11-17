@@ -55,6 +55,22 @@ DUPLICATE_FACE_DISTANCE = float(os.getenv("DUPLICATE_FACE_DISTANCE", "0.30"))
 # practice changes so existing rows can be identified and re-consented.
 CONSENT_VERSION = os.getenv("CONSENT_VERSION", "2026-11").strip()
 
+# Recognition model identifier recorded on each enrollment. Bump (or set via
+# env) when the backbone changes so the institution knows which students need
+# re-enrollment. This is metadata only; the embedding dimension is unchanged.
+MODEL_VERSION = os.getenv("MODEL_VERSION", "buffalo_s").strip()
+
+# Alerting: optional webhook fired on health degradation or error-rate spikes.
+# Empty disables alerting entirely (the safe default for local development).
+ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
+ALERT_ERROR_RATE_THRESHOLD = float(os.getenv("ALERT_ERROR_RATE_THRESHOLD", "0.1"))
+ALERT_COOLDOWN_SECONDS = int(os.getenv("ALERT_COOLDOWN_SECONDS", "300"))
+# Minimum requests before an error-rate alert can fire (avoids noise on tiny samples).
+ALERT_MIN_REQUESTS = int(os.getenv("ALERT_MIN_REQUESTS", "20"))
+
+# Persist unmatched detections for staff review. Off disables the queue entirely.
+REVIEW_QUEUE_ENABLED = _env_bool("REVIEW_QUEUE_ENABLED", default=True)
+
 # Attendance retention. 0 keeps rows forever (the safe default until the
 # institution sets a policy). Used by scripts/purge_retention.py, not at startup.
 ATTENDANCE_RETENTION_DAYS = int(os.getenv("ATTENDANCE_RETENTION_DAYS", "0"))

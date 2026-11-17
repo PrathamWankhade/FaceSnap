@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import LOG_FORMAT
 from app.metrics import metrics
+from app.services.notifier import error_rate_spike
 
 logger = logging.getLogger("facesnap.request")
 
@@ -68,6 +69,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             metrics.record_request(
                 request.method, _route_label(request), 500, duration_seconds
             )
+            total, failures = metrics.totals()
+            error_rate_spike(total, failures)
             _log(
                 "request.error",
                 request_id=request_id,
@@ -83,6 +86,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         status = response.status_code
         route = request.url.path
         metrics.record_request(request.method, _route_label(request), status, duration_seconds)
+        total, failures = metrics.totals()
+        error_rate_spike(total, failures)
 
         response.headers["X-Request-Id"] = request_id
 

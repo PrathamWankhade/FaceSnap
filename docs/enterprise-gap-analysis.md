@@ -58,7 +58,7 @@ These are correctness properties, not marketing:
 |---|---|---|
 | Multi-camera, RTSP/ONVIF, NVR federation | ○ | `/cctv` is one stream. Multi-camera needs a stream registry, per-camera workers and a scheduler; deliberately not faked with a UI dropdown. |
 | Video analytics (counting, crowd density, zones, loitering) | ✕ | Different product (VMS analytics), different consent posture. See ADR 0002 and the non-goals in `docs/system-design.md`. |
-| Real-time alerting (push/SMS/webhook) | ○ | No alert channel. Metrics + health exist; an alerting integration (webhook on health/error budget) is P1. |
+| Real-time alerting (push/SMS/webhook) | ◐ | Webhook alerting added (`app/services/notifier.py`, `ALERT_WEBHOOK_URL`); fires on health degradation and error-rate spikes. Email/SMS still TODO. |
 | PTZ control, camera health, auto-reconnect | ○ | Camera service exposes health; no PTZ/reconnect logic. Needs a device protocol layer. |
 | Forensic face search over footage | ✕ | Would turn an attendance tool into surveillance; requires retention, legal basis and a separate access model. |
 | Cross-camera re-identification | ✕ | Same reason as forensic search. |
@@ -89,8 +89,8 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Model versioning / rollback | ○ | The pack name is in one place; embeddings are model-specific, so a swap needs a full re-enrollment/backfill and an ADR. |
-| Drift detection | ○ | No monitoring of match-distance distributions over time. A simple histogram on the existing metrics endpoint is the first step. |
+| Model versioning / rollback | ◐ | `model_version` column on students + payload; recorded at enroll/backfill; exposed in export. Rollback plan still an ADR away. |
+| Drift detection | ◐ | Match-distance histogram added (`facesnap_match_distance_bucket` on /api/metrics). Alerting on drift threshold still TODO. |
 | Retraining pipeline / human-in-the-loop labelling | ✕ | No training happens here (ADR 0006); a future model must arrive with a corpus, licence and evaluation report. |
 | Model registry / shadow mode | ○ | Out of scope until there is a second model to compare. |
 
@@ -114,8 +114,8 @@ These are correctness properties, not marketing:
 | Mobile native apps | ✕ | Responsive web only; a native app adds distribution and camera-permission work without changing the protocol. |
 | Visitor management / watchlists | ✕ | Explicitly surveillance-adjacent; out of scope. |
 | Shift/overtime/payroll (T&A beyond marking) | ✕ | Different product (workforce management). |
-| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` gives counts/breakdowns; no scheduled exports or BI layer. |
-| Case management for unmatched faces | ○ | Unmatched detections are surfaced, not queued for review. A review queue is a concrete next step. |
+| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` gives counts/breakdowns; CSV export added via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
+| Case management for unmatched faces | ◐ | Review queue added (`/api/detections/review`, list/resolve) with status; assignment/notes beyond a single note still TODO. |
 | WCAG certification / i18n | ○ | No audit or translations. Accessibility fixes are welcome; certification is not claimed. |
 | Offline-first | ✕ | Fails closed on connectivity loss; offline conflict resolution is a large design surface. |
 | Mask/temperature screening | ✕ | Pandemic-era feature, no sensor, no consent basis. |

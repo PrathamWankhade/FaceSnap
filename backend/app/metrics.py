@@ -19,6 +19,9 @@ from typing import Iterable
 # CPU-bound recognition call; anything above the last bucket counts as +Inf.
 DEFAULT_BUCKETS: tuple[float, ...] = (0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
 
+# Cosine-distance buckets for match drift monitoring (0 = identical, 1 = opposite).
+MATCH_DISTANCE_BUCKETS: tuple[float, ...] = (0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.5, 0.75, 1.0)
+
 
 def _escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
@@ -29,6 +32,7 @@ class Metrics:
 
     def __init__(self, buckets: Iterable[float] = DEFAULT_BUCKETS) -> None:
         self._buckets = tuple(sorted(buckets))
+        self._match_buckets = MATCH_DISTANCE_BUCKETS
         self._lock = threading.Lock()
         # (method, route, status) -> count
         self._requests: dict[tuple[str, str, str], int] = defaultdict(int)
@@ -38,6 +42,8 @@ class Metrics:
         # status ("401"/"403") -> count
         self._auth_failures: dict[str, int] = defaultdict(int)
         self._started = time.monotonic()
+        # route -> {"sum", "count", "buckets"} for match cosine distances (0..1)
+        self._match_distances: dict[str, dict] = {}
 
     # -- recording ---------------------------------------------------------
     def record_request(
@@ -71,6 +77,36 @@ class Metrics:
                 if duration_seconds <= bound:
                     entry["buckets"][index] += 1
 
+    def totals(self) -> tuple[int, int]:
+        """Return (total_requests, server_error_requests) for alerting."""
+        with self._lock:
+            total = sum(self._requests.values())
+            failures = sum(count for (m, r, s), count in self._requests.items() if s.startswith("5"))
+        return total, failures
+
+    def record_match_distance(self, distance: float, route: str = "detect") -> None:
+        """Record a verified match's cosine distance for drift monitoring."""
+        route = route or "unmatched"
+        try:
+            value = float(distance)
+        except (TypeError, ValueError):
+            return
+        if value < 0:
+            value = 0.0
+        if value > 1.0:
+            value = 1.0
+        buckets = self._match_buckets
+        with self._lock:
+            entry = self._match_distances.get(route)
+            if entry is None:
+                entry = {"sum": 0.0, "count": 0, "buckets": [0] * len(buckets)}
+                self._match_distances[route] = entry
+            entry["sum"] += value
+            entry["count"] += 1
+            for index, bound in enumerate(buckets):
+                if value <= bound:
+                    entry["buckets"][index] += 1
+
     def reset(self) -> None:
         with self._lock:
             self._requests.clear()
@@ -78,6 +114,7 @@ class Metrics:
             self._rate_limited = 0
             self._auth_failures.clear()
             self._started = time.monotonic()
+            self._match_distances.clear()
 
     # -- exposition --------------------------------------------------------
     def render(self) -> str:
@@ -95,7 +132,11 @@ class Metrics:
             auth_failures = dict(self._auth_failures)
             uptime = time.monotonic() - self._started
             buckets = self._buckets
-
+            match_buckets = self._match_buckets
+            match_distances = {
+                key: {"sum": v["sum"], "count": v["count"], "buckets": list(v["buckets"])}
+                for key, v in self._match_distances.items()
+            }
         lines: list[str] = [
             "# HELP facesnap_requests_total HTTP requests by method, route and status.",
             "# TYPE facesnap_requests_total counter",
@@ -134,6 +175,23 @@ class Metrics:
         ]
         for status, count in sorted(auth_failures.items()):
             lines.append(f'facesnap_auth_failures_total{{status="{_escape(status)}"}} {count}')
+
+        lines += [
+            "# HELP facesnap_match_distance Cosine distance of verified matches (drift monitoring).",
+            "# TYPE facesnap_match_distance histogram",
+        ]
+        for route, entry in sorted(match_distances.items()):
+            labels = f'route="{_escape(route)}"'
+            for bound, count in zip(match_buckets, entry["buckets"]):
+                lines.append(
+                    "facesnap_match_distance_bucket"
+                    f'{{{labels},le="{bound}"}} {count}'
+                )
+            lines.append(
+                f'facesnap_match_distance_bucket{{{labels},le="+Inf"}} {entry["count"]}'
+            )
+            lines.append(f"facesnap_match_distance_sum{{{labels}}} {entry['sum']:.6f}")
+            lines.append(f"facesnap_match_distance_count{{{labels}}} {entry['count']}")
 
         lines += [
             "# HELP facesnap_process_uptime_seconds Seconds since this process started.",

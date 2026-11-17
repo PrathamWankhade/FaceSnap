@@ -23,6 +23,7 @@ from app.routes.registry import router as registry_router
 from app.routes.verification import router as verification_router
 from app.services.camera import pi_camera
 from app.services.face_service import face_service
+from app.services.notifier import health_degraded as notify_health_degraded
 from app.services.vector_service import vector_service
 
 configure_logging()
@@ -190,6 +191,8 @@ def health():
 
     healthy = db_ok and vec_ok and face_ok
     status_code = 200 if healthy else 503
+    if not healthy:
+        notify_health_degraded(components)
     return JSONResponse(
         content={
             "ok": healthy,
