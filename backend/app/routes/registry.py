@@ -659,6 +659,43 @@ def analytics_overview(
 
 
 # ---------------------------------------------------------------------------
+# Analytics trends
+# ---------------------------------------------------------------------------
+@router.get("/api/analytics/trends")
+def analytics_trends(
+    user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: Session = Depends(get_db),
+    group: str = Query(default="day", pattern="^(day|week|month)$"),
+    days: int = Query(default=30, ge=1, le=365),
+    department: str | None = Query(default=None, max_length=120),
+):
+    since = utcnow() - timedelta(days=days)
+    stmt = select(Attendance).where(Attendance.captured_at >= since)
+    if department:
+        stmt = stmt.join(Student).where(Student.department == department)
+    rows = db.scalars(stmt).all()
+
+    buckets: dict[str, dict] = {}
+    for row in rows:
+        dt = as_utc(row.captured_at)
+        if dt is None:
+            continue
+        if group == "day":
+            key = dt.date().isoformat()
+        elif group == "week":
+            key = dt.date().replace(day=dt.date().day - dt.weekday()).isoformat()
+        else:
+            key = dt.strftime("%Y-%m")
+        if key not in buckets:
+            buckets[key] = {"period": key, "total": 0, "byMethod": {}}
+        buckets[key]["total"] += 1
+        buckets[key]["byMethod"][row.method] = buckets[key]["byMethod"].get(row.method, 0) + 1
+
+    series = sorted(buckets.values(), key=lambda b: b["period"])
+    return {"group": group, "days": days, "series": series, "total": len(rows)}
+
+
+# ---------------------------------------------------------------------------
 # Class sessions
 # ---------------------------------------------------------------------------
 @router.post("/api/sessions")
@@ -836,8 +873,59 @@ def attendance_report(
 
 
 # ---------------------------------------------------------------------------
-# Maintenance
+# Cameras (registry)
 # ---------------------------------------------------------------------------
+class CameraCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    location: str | None = Field(default=None, max_length=160)
+    stream_url: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/api/cameras")
+def list_cameras(user: User = Depends(get_current_user_row), db: Session = Depends(get_db)):
+    rows = db.scalars(select(Camera).order_by(Camera.id)).all()
+    return {
+        "cameras": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "location": c.location,
+                "streamUrl": c.stream_url,
+                "status": c.status,
+                "createdAt": _iso(c.created_at),
+            }
+            for c in rows
+        ]
+    }
+
+
+@router.post("/api/cameras")
+def create_camera(
+    payload: CameraCreate,
+    user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: Session = Depends(get_db),
+):
+    cam = Camera(name=payload.name, location=payload.location, stream_url=payload.stream_url, status="offline")
+    db.add(cam)
+    _audit(db, user, "camera.create", "camera", None)
+    db.commit()
+    db.refresh(cam)
+    return {"id": cam.id, "name": cam.name, "status": cam.status}
+
+
+@router.delete("/api/cameras/{camera_id}")
+def delete_camera(
+    camera_id: int,
+    user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: Session = Depends(get_db),
+):
+    cam = db.get(Camera, camera_id)
+    if cam is None:
+        raise HTTPException(status_code=404, detail="Camera not found.")
+    _audit(db, user, "camera.delete", "camera", camera_id)
+    db.delete(cam)
+    db.commit()
+    return {"deleted": True, "id": camera_id}
 @router.post("/api/admin/backfill-embeddings")
 def backfill_embeddings(
     user: User = Depends(require_roles("admin")),

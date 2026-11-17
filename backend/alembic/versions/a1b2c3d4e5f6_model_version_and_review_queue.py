@@ -35,6 +35,8 @@ def upgrade() -> None:
             sa.Column("nearest_uid", sa.String(length=128), nullable=True),
             sa.Column("nearest_distance", sa.Float(), nullable=True),
             sa.Column("note", sa.Text(), nullable=True),
+            sa.Column("assigned_to", sa.String(length=128), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+            sa.Column("assigned_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("resolved_by", sa.String(length=128), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
             sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("created_by", sa.String(length=128), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),

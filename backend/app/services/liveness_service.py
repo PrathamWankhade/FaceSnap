@@ -1,3 +1,5 @@
+import uuid
+
 import cv2
 import numpy as np
 from scipy import signal
@@ -22,6 +24,7 @@ class LivenessService:
         self.frame_count = LIVENESS_FRAME_COUNT
         self.fps_target = LIVENESS_FPS_TARGET
         self._face_cascade = None
+        self._challenges: dict[str, str] = {}
 
     def detect_liveness(self, frames_bytes, fps=None):
         """Score a short frame burst for signs of a live face.
@@ -59,6 +62,36 @@ class LivenessService:
             "blink_score": float(round(blink_score, 3)),
             "motion_score": float(round(motion_score, 3)),
             "fps": float(round(effective_fps, 1)),
+        }
+
+    CHALLENGES = ("blink", "turn_left", "turn_right")
+
+    def issue_challenge(self) -> dict:
+        """Issue a random challenge the client must perform on camera."""
+        challenge = __import__("random").choice(self.CHALLENGES)
+        token = str(uuid.uuid4())
+        self._challenges[token] = challenge
+        return {"challenge": challenge, "token": token, "expires_in": 30}
+
+    def verify_challenge(self, frames_bytes, token: str, fps=None) -> dict:
+        challenge = self._challenges.pop(token, None)
+        if challenge is None:
+            return {"live": False, "passed": False, "reason": "unknown or expired challenge token"}
+        base = self.detect_liveness(frames_bytes, fps=fps)
+        if challenge == "blink":
+            passed = base.get("blink_score", 0.0) >= 0.2 or base.get("rppg_score", 0.0) >= LIVENESS_RPPG_PASS
+        else:
+            passed = base.get("motion_score", 0.0) >= 0.3
+        # A challenge must still clear the underlying liveness bar.
+        passed = bool(passed and base.get("live", False))
+        return {
+            "live": bool(base.get("live", False)),
+            "passed": passed,
+            "challenge": challenge,
+            "score": base.get("score", 0.0),
+            "rppg_score": base.get("rppg_score", 0.0),
+            "blink_score": base.get("blink_score", 0.0),
+            "motion_score": base.get("motion_score", 0.0),
         }
 
     def _decode_frames(self, frames_bytes):

@@ -30,6 +30,10 @@ class ReviewResolveRequest(BaseModel):
     note: str | None = None
 
 
+class AssignRequest(BaseModel):
+    assigned_to: str | None = None
+
+
 def _review_dict(row: DetectionReview) -> dict:
     return {
         "id": row.id,
@@ -39,6 +43,8 @@ def _review_dict(row: DetectionReview) -> dict:
         "nearestUid": row.nearest_uid,
         "nearestDistance": row.nearest_distance,
         "note": row.note,
+        "assignedTo": row.assigned_to,
+        "assignedAt": row.assigned_at.isoformat() + "Z" if row.assigned_at else None,
         "resolvedBy": row.resolved_by,
         "resolvedAt": row.resolved_at.isoformat() + "Z" if row.resolved_at else None,
     }
@@ -198,6 +204,34 @@ def resolve_review_item(
     try:
         from app.routes.registry import _audit
         _audit(db, user, "detection.review.resolve", "detection_review", row.id)
+        db.commit()
+    except Exception:
+        pass
+    return _review_dict(row)
+
+
+@router.post("/api/detections/review/{item_id}/assign")
+def assign_review_item(
+    item_id: int,
+    payload: AssignRequest,
+    user: User = Depends(require_roles(*STAFF)),
+    db: Session = Depends(get_db),
+):
+    row = db.get(DetectionReview, item_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Review item not found.")
+    if payload.assigned_to is not None:
+        target = db.get(User, payload.assigned_to)
+        if target is None:
+            raise HTTPException(status_code=404, detail="Assignee not found.")
+    row.assigned_to = payload.assigned_to
+    row.assigned_at = utcnow() if payload.assigned_to else None
+    db.commit()
+    db.refresh(row)
+    try:
+        from app.routes.registry import _audit
+
+        _audit(db, user, "detection.review.assign", "detection_review", row.id)
         db.commit()
     except Exception:
         pass

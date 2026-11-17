@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.auth import get_current_user, require_roles
 from app.models.schemas import LivenessVerifyRequest, VerifyRequest, VerifyResponse
@@ -124,3 +125,32 @@ def verify_student_with_liveness(
         distance=round(distance, 4),
         liveness=liveness_result,
     )
+
+
+@router.get("/api/liveness/challenge")
+def issue_liveness_challenge(user=Depends(get_current_user)):
+    return liveness_service.issue_challenge()
+
+
+class ChallengeVerifyRequest(BaseModel):
+    token: str
+    frames_base64: list[str]
+    frame_interval_ms: float = 100.0
+
+
+@router.post("/api/liveness/verify_challenge")
+def verify_liveness_challenge(
+    request: ChallengeVerifyRequest,
+    user=Depends(get_current_user),
+    _rate=Depends(rate_limit_face),
+):
+    if len(request.frames_base64) < 5:
+        raise HTTPException(status_code=400, detail="At least 5 frames are required.")
+    frames_bytes = []
+    for fb in request.frames_base64:
+        try:
+            frames_bytes.append(face_service._decode_base64(fb))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid frame base64 data.")
+    fps = 1000.0 / request.frame_interval_ms if request.frame_interval_ms else 10.0
+    return liveness_service.verify_challenge(frames_bytes, request.token, fps=fps)
