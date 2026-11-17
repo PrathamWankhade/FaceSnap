@@ -48,8 +48,11 @@ function SystemStatus() {
     try {
       const headers = await authHeaders();
       const res = await fetch(getBackendUrl('/api/health'), { headers });
-      if (!res.ok) throw new Error(`Health check failed (${res.status})`);
-      setHealth(await res.json());
+      const data = (await res.json()) as BackendHealth;
+      if (typeof data?.face_model_ready !== 'boolean') {
+        throw new Error(`Unexpected health response (${res.status})`);
+      }
+      setHealth(data);
       setState('ok');
     } catch {
       setHealth(null);
@@ -61,12 +64,10 @@ function SystemStatus() {
     let cancelled = false;
     authHeaders()
       .then((headers) => fetch(getBackendUrl('/api/health'), { headers }))
-      .then((res) => {
-        if (!res.ok) throw new Error(`Health check failed (${res.status})`);
-        return res.json() as Promise<BackendHealth>;
-      })
+      .then((res) => res.json() as Promise<BackendHealth>)
       .then((data) => {
         if (cancelled) return;
+        if (typeof data?.face_model_ready !== 'boolean') throw new Error('Unexpected health response');
         setHealth(data);
         setState('ok');
       })

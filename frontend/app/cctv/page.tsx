@@ -62,13 +62,11 @@ export default function CCTVPage() {
       try {
         const headers = await authHeaders();
         const res = await fetch(getBackendUrl('/api/health'), { headers });
-        if (res.ok) {
-          const h = await res.json();
-          setEngineReady(!!h.face_model_ready && !!h.vector_db_ready);
-          setEnrolledCount(typeof h.students_in_db === 'number' ? h.students_in_db : null);
-        } else {
-          setEngineReady(false);
-        }
+        // Readiness is 503 when a hard dependency is down, but the body still
+        // identifies which one. Treat a parseable body as reachable.
+        const h = await res.json();
+        setEngineReady(!!h.face_model_ready && !!h.vector_db_ready);
+        setEnrolledCount(typeof h.students_in_db === 'number' ? h.students_in_db : null);
       } catch {
         setEngineReady(false);
       }

@@ -84,7 +84,9 @@ These are the acceptance criteria the ops/CI layers below exist to satisfy.
 
 ### Availability & operability
 - **NFR-O1** `/api/health/live` answers `200` while the process is up; `/api/health` reports
-  per-component readiness (`database`, `vector`, `face_model`, `camera`).
+  per-component readiness (`database`, `vector`, `face_model`, `camera`). The first three are
+  required; the camera is optional (`PI_CAMERA_ENABLED` defaults to false) and is reported
+  without failing readiness.
 - **NFR-O2** Every request carries a correlation ID, returned in a response header and attached
   to every log line and error.
 - **NFR-O3** Logs are structured JSON in production and carry no tokens, keys or image bytes.

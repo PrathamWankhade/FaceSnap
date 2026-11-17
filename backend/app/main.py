@@ -96,10 +96,12 @@ def _db_counts():
 
 
 def _component_health():
-    """Readiness of each hard dependency, each bounded by its own timeout.
+    """Readiness of each component, each bounded by its own timeout.
 
     Never triggers model inference or image loading; a dependency that does not
     answer within its timeout counts as unhealthy rather than hanging health.
+    The camera is reported but is optional (``PI_CAMERA_ENABLED`` defaults to
+    false), so it does not decide overall readiness.
     """
     pool = ThreadPoolExecutor(max_workers=3)
 
@@ -175,7 +177,9 @@ def health():
     """Readiness probe: per-component status with bounded timeouts.
 
     Returns ``200`` with ``ok:true`` when every hard dependency is ready,
-    ``503`` when any hard dependency is down or slower than its timeout.
+    ``503`` when a hard dependency (database, vector index, face model) is down
+    or slower than its timeout. The camera is optional: a disabled or stopped
+    camera appears as ``camera.enabled: false`` but does not fail readiness.
     Never triggers model inference.
     """
     components = _component_health()
@@ -184,7 +188,7 @@ def health():
     db_ok, students, attendance = _db_counts()
     components["database"] = db_ok
 
-    healthy = all(components.values())
+    healthy = db_ok and vec_ok and face_ok
     status_code = 200 if healthy else 503
     return JSONResponse(
         content={

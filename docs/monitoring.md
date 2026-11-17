@@ -8,7 +8,7 @@ request caused it* — is answerable without attaching a debugger.
 | Endpoint | Purpose | Cost | Expected status |
 |----------|---------|------|-----------------|
 | `GET /api/health/live` | process is running (uptime/ liveness probe) | none — no I/O | `200` always while serving |
-| `GET /api/health` | readiness: `database`, `vector_db`, `face_model`, `camera` + counts | two cheap `COUNT(*)` queries | `200` `ok:true` healthy · `503` when a hard dependency is down |
+| `GET /api/health` | readiness: `database`, `vector_db`, `face_model`, plus the **optional** `camera` state and counts | two cheap `COUNT(*)` queries | `200` `ok:true` when the hard dependencies are ready · `503` when one is down · a disabled camera is reported but does not fail readiness |
 | `GET /` | human/agent summary | same as health | `200` |
 
 Rules:

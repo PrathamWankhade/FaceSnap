@@ -98,6 +98,31 @@ def test_health_reports_database(client):
     assert "students_in_db" in body
 
 
+def test_health_stays_ready_when_the_optional_camera_is_disabled(client, monkeypatch):
+    """A disabled Pi camera must not turn the whole API unready (503)."""
+    from app import main as main_module
+
+    class ReadyFace:
+        is_ready = True
+
+    class ReadyVector:
+        is_ready = True
+
+        def count(self):
+            return 3
+
+    monkeypatch.setattr(main_module, "face_service", ReadyFace())
+    monkeypatch.setattr(main_module, "vector_service", ReadyVector())
+
+    res = client.get("/api/health")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["ok"] is True
+    assert body["components"]["face_model"] is True
+    assert body["components"]["camera"] is False
+    assert body["embeddings_indexed"] == 3
+
+
 def test_enrollment_creates_student_and_profile(client):
     res = enroll(client)
     assert res.status_code == 200, res.text

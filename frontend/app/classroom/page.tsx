@@ -40,7 +40,14 @@ export default function ClassroomPage() {
         const [studentsRes, health] = await Promise.all([
           api.get<{ students: StudentData[] }>('/api/students'),
           fetch(getBackendUrl('/api/health'), { headers: await authHeaders() })
-            .then((res) => (res.ok ? res.json() : null))
+            .then(async (res) => {
+              // Readiness can be 503 while the body still names the components.
+              try {
+                return await res.json();
+              } catch {
+                return null;
+              }
+            })
             .catch(() => null),
         ]);
         setRegisteredStudents(studentsRes.students);
