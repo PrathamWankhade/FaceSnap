@@ -44,7 +44,7 @@ jobs:
         working-directory: backend
       - run: pip install -r requirements-dev.txt
         working-directory: backend
-      - run: python -m ruff check app tests
+      - run: python -m ruff check app tests scripts
         working-directory: backend
       # Audit the environment that was just installed. `-r requirements.txt`
       # re-resolves and rebuilds the InsightFace sdist, which is slow and

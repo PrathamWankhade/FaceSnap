@@ -15,6 +15,8 @@ Built with **Next.js 15** on the frontend and a **FastAPI + SQL + InsightFace Ar
 - **Four capture modes** — 1:1 student verification, live doorway batch, group-photo upload, and a single-camera stream (Pi/webcam), all writing one canonical attendance schema.
 - **Failures are visible** — camera or API failures produce an error and zero records. Detection, recognition, and attendance are three separate, explicit states in the UI.
 - **Low-light aware, not low-light magic** — frames below a luminance floor get conditional CLAHE + capped gamma before detection/embedding; normally-lit frames are untouched. No learned enhancement model is claimed.
+- **Enrollment quality gates** — the server rejects blurry, tiny, dark, off-angle or ambiguous photos, and blocks the same face being enrolled under a second identity. Bad enrollments do not become bad matches.
+- **Consent is recorded, not assumed** — the register page requires the current notice version; the database stores `consent_version` + `consent_at`. Students can export their data and delete it.
 - **Safe production defaults** — Firebase ID-token auth, role-aware UI *and* API enforcement, staff-only camera/matching routes, a server-side chatbot proxy (no provider key in the browser), explicit CORS, and a fail-fast startup guard.
 
 ## How it works
@@ -22,8 +24,9 @@ Built with **Next.js 15** on the frontend and a **FastAPI + SQL + InsightFace Ar
 ```
 Enroll        Verify / Attend
 ------        ----------------
-Google sign-in → student details → face capture → backend validates exactly 1 face
-  → student row + image in the local image store + ArcFace embedding in Qdrant
+Google sign-in → student details → consent notice → face capture
+  → backend quality gate (one face, sharp, frontal, large enough) + duplicate-face check
+  → student row + consent version + image in the local image store + ArcFace embedding in Qdrant
   → (all writes go through FastAPI; the browser never writes records directly)
 
 Live scan (~50 frames at ~10 FPS) → liveness analysis → ArcFace embedding → cosine-distance match
@@ -44,6 +47,8 @@ Terminology matters here: enrollment is **one-shot**; attendance is **multi-fram
 | Enrollment photos | Local image store (`FACE_IMAGE_DIR`), only the key is stored in SQL |
 
 The backend owns every write: enrollment, attendance, sessions, roles and leave requests. Attendance is **idempotent** — a unique `(student_id, session_id)` constraint for session-scoped marks, plus a partial unique index on `(student_id, method, date(captured_at))` for sessionless marks. Retries, repeated camera frames, and concurrent requests cannot double-count a student.
+
+Compliance affordances that ship today: versioned consent, owner/staff data export (`GET /api/students/{id}/export`), self-service deletion, and an opt-in attendance-retention job (`backend/scripts/purge_retention.py`, dry-run by default, audited). See [`docs/consent.md`](docs/consent.md) and [`docs/enterprise-gap-analysis.md`](docs/enterprise-gap-analysis.md) for what is still missing (certified PAD, biometric auto-expiry, multi-camera).
 
 ## Quick start
 
@@ -118,6 +123,13 @@ Copy `frontend/.env.example` → `frontend/.env.local` and `backend/.env.example
 | `LOW_LIGHT_THRESHOLD` | Backend | No | Mean luminance below which CLAHE + gamma is applied (default `90`); brighter frames pass through untouched |
 | `LOW_LIGHT_TARGET_MEAN` | Backend | No | Luminance the enhancement aims for (default `115`) |
 | `LOW_LIGHT_MAX_GAMMA` | Backend | No | Caps brightening so a near-black frame is not amplified into noise (default `3.0`) |
+| `ENROLLMENT_MIN_FACE_PX` | Backend | No | Minimum face box side at enrollment (default `100`) |
+| `ENROLLMENT_MIN_SHARPNESS` | Backend | No | Laplacian-variance floor; rejects blurry photos (default `35`) |
+| `ENROLLMENT_MIN_DET_SCORE` | Backend | No | Detector-confidence floor at enrollment (default `0.60`) |
+| `ENROLLMENT_MAX_YAW` / `ENROLLMENT_MAX_ROLL` | Backend | No | Turn/tilt limits from the five landmarks (default `0.35` ratio / `25°`) |
+| `DUPLICATE_FACE_DISTANCE` | Backend | No | Cosine distance at/below which a face is treated as already enrolled (default `0.30`) |
+| `CONSENT_VERSION` | Backend | No | Consent notice version enforced at enrollment (default `2026-11`) |
+| `ATTENDANCE_RETENTION_DAYS` | Backend | No | Default window for `scripts/purge_retention.py`; `0` means no policy is configured |
 | `LOG_FORMAT` / `LOG_LEVEL` | Backend | No | `json` (default in production) or `text`; log level (default `INFO`) |
 | `HOST` / `PORT` | Backend | No | Server bind (default `0.0.0.0:8000`) |
 
@@ -137,6 +149,8 @@ Base URL: `http://localhost:8000` (or your `PORT`). Authenticated routes expect 
 | GET | `/api/students` | Staff | All students. Students get their own profile via `/api/students/me` |
 | GET | `/api/students/me` | User | Caller's student profile |
 | GET | `/api/students/me/face` | User | Caller's own enrollment photo (owner-only data URL) |
+| GET | `/api/consent` | — | Current consent version and summary (the register page acknowledges it) |
+| GET | `/api/students/{id}/export` | Owner/Staff | JSON export of profile, consent and attendance (audited) |
 | DELETE | `/api/students/{id}` | Owner/Admin | Delete profile, photo, embedding and attendance |
 | POST | `/api/attendance` | User | Record attendance (idempotent). Staff may pass `student_uid` |
 | GET | `/api/attendance` | User | History with `student_uid`, `method`, `session_id`, `from`, `to`, `limit` filters |
@@ -167,6 +181,8 @@ Backend config lives in `backend/app/config.py` — key knobs:
 | `LOW_LIGHT_THRESHOLD` | `90` | Mean luminance below which enhancement runs |
 | `LOW_LIGHT_TARGET_MEAN` | `115` | Target luminance after enhancement |
 | `LOW_LIGHT_MAX_GAMMA` | `3.0` | Cap on brightening gain |
+| Enrollment gate | 100 px / sharpness 35 | Rejects tiny, blurry, dark, low-confidence or turned faces |
+| `DUPLICATE_FACE_DISTANCE` | `0.30` | Same face under a second identity is rejected when the vector index is online |
 | Image guardrails | 8 MB / 4096 px | Oversized or undecodable images are rejected with a clean error |
 
 ## App tour
@@ -206,8 +222,14 @@ The UI ships in **light and dark themes** (toggle in the nav, persisted per devi
 - `/api/analytics/overview` is operational reporting (counts and breakdowns), not a BI/analytics product. Scans are staff-triggered; there is no unattended scheduling.
 - `/cctv` consumes a single camera stream (Pi or webcam); it is **not** an RTSP/CCTV fleet integration. With auth enabled, the browser's `<img>` stream cannot attach a bearer header — use a trusted proxy or the authenticated capture/detect endpoints.
 - SQLite is for local development. Multi-worker production requires Postgres and a shared rate-limit store (`RATE_LIMIT_BACKEND=redis`); no multi-node capacity benchmark has been run.
-- There is no retention-expiry job for attendance or biometric data — retention is a
-  policy decision the institution must make before storing real student data.
+- Attendance retention is opt-in and operator-run (`backend/scripts/purge_retention.py`, dry-run
+  by default). Biometric auto-expiry is **not** implemented: a student can delete their profile,
+  but an automatic photo/embedding expiry needs an institutional policy decision. There is no
+  re-consent UI yet, only queryable `consent_version` rows.
+- Enrollment quality gates and the duplicate-face guard reduce bad enrollments; they are heuristics
+  (Laplacian sharpness, landmark pose, cosine distance), not a certified biometric quality standard.
+- Encryption at rest is a host/volume responsibility (KMS/HSM); the application does not encrypt the
+  image store or Qdrant files itself.
 - Qdrant local mode is a single-node convenience; a Qdrant server is supported by configuration but not deployed here.
 
 ## Testing & CI
@@ -276,6 +298,8 @@ Recognition accuracy is **not** asserted by CI: no dataset ships with the repo. 
 | [`docs/system-design.md`](docs/system-design.md) | personas, scope, numbered NFRs, out-of-scope |
 | [`docs/paper-alignment.md`](docs/paper-alignment.md) | every paper claim vs. what the code actually does |
 | [`docs/evaluation.md`](docs/evaluation.md) | FAR/FRR/EER protocol and the benchmark harness |
+| [`docs/enterprise-gap-analysis.md`](docs/enterprise-gap-analysis.md) | honest comparison vs. enterprise FR/VMS products: what exists, what is partial, what is out of scope |
+| [`docs/consent.md`](docs/consent.md) | biometric consent notice template and the enforced version |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | request flow, schema, services |
 | [`docs/permissions.md`](docs/permissions.md) | who may call what |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | threat model, secrets, biometric handling |

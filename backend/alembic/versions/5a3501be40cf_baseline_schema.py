@@ -5,7 +5,7 @@ Revises:
 Create Date: 2026-10-31 14:22:57.154348
 
 Baseline for an existing production schema (pre-Alembic ``create_all`` databases
-should be ``python -m alembic stamp head``'d first — see docs/runbooks/migrate.md).
+should be ``python -m alembic stamp 5a3501be40cf``'d first — see docs/runbooks/migrate.md).
 
 Includes the partial unique index ``uq_attendance_daily`` that enforces one
 sessionless mark per student/method/day (NFR-C2). Autogenerate skips it because

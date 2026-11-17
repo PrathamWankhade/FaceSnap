@@ -36,6 +36,29 @@ EMBEDDING_DIM = 512
 # Face detection confidence threshold
 DETECTION_CONFIDENCE = 0.5
 
+# Enrollment quality gates. A bad enrollment poisons every later match, so the
+# server rejects blurry, tiny, dark, off-angle or ambiguous photos instead of
+# storing them. Thresholds are deliberately conservative and configurable.
+ENROLLMENT_MIN_FACE_PX = int(os.getenv("ENROLLMENT_MIN_FACE_PX", "100"))
+ENROLLMENT_MIN_DET_SCORE = float(os.getenv("ENROLLMENT_MIN_DET_SCORE", "0.60"))
+ENROLLMENT_MIN_SHARPNESS = float(os.getenv("ENROLLMENT_MIN_SHARPNESS", "35"))
+ENROLLMENT_MIN_BRIGHTNESS = float(os.getenv("ENROLLMENT_MIN_BRIGHTNESS", "40"))
+ENROLLMENT_MAX_YAW = float(os.getenv("ENROLLMENT_MAX_YAW", "0.35"))
+ENROLLMENT_MAX_ROLL = float(os.getenv("ENROLLMENT_MAX_ROLL", "25"))
+
+# Reject enrolling the same face under a second identity. Cosine distance at or
+# below this is treated as a duplicate. Strict on purpose: a false duplicate
+# blocks one student who can retry, a missed duplicate creates a fraud path.
+DUPLICATE_FACE_DISTANCE = float(os.getenv("DUPLICATE_FACE_DISTANCE", "0.30"))
+
+# Consent version recorded at enrollment. Bump when the notice or the data
+# practice changes so existing rows can be identified and re-consented.
+CONSENT_VERSION = os.getenv("CONSENT_VERSION", "2026-11").strip()
+
+# Attendance retention. 0 keeps rows forever (the safe default until the
+# institution sets a policy). Used by scripts/purge_retention.py, not at startup.
+ATTENDANCE_RETENTION_DAYS = int(os.getenv("ATTENDANCE_RETENTION_DAYS", "0"))
+
 # Conditional low-light enhancement applied before detection/embedding.
 # A frame at or above the threshold is left untouched; a darker frame is
 # CLAHE+gamma lifted toward the target mean, with a capped gain.

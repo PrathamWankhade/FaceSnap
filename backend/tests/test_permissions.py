@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.auth import get_current_user
+from app.config import CONSENT_VERSION
 from app.db import Attendance, SessionLocal, User
 from app.main import app
 from app.routes import registry
@@ -42,6 +43,26 @@ class FakeFaceService:
     def get_multiple_encodings(self, frames_bytes):
         return [[0.01] * 512 for _ in frames_bytes]
 
+    def assess_enrollment(self, image_bytes):
+        count = self.count_faces(image_bytes)
+        if count != 1:
+            return {
+                "ok": False,
+                "face_count": count,
+                "reasons": [
+                    f"Enrollment needs exactly one clearly visible face (detected {count})."
+                ],
+                "metrics": {},
+                "embedding": None,
+            }
+        return {
+            "ok": True,
+            "face_count": 1,
+            "reasons": [],
+            "metrics": {},
+            "embedding": self.get_face_encoding(image_bytes),
+        }
+
 
 class FakeVectorService:
     is_ready = True
@@ -57,6 +78,9 @@ class FakeVectorService:
 
     def count(self):
         return len(self.points)
+
+    def search(self, embedding, limit=1, score_threshold=0.6):
+        return []
 
 
 @pytest.fixture()
@@ -117,6 +141,7 @@ def _enroll_student(client, uid, email, roll):
             "year": "3",
             "semester": "5",
             "image_base64": IMAGE,
+            "consent_version": CONSENT_VERSION,
         },
     )
     assert res.status_code == 200, res.text
@@ -308,3 +333,17 @@ def test_leave_is_scoped_to_own_student(client):
     mine = client.get("/api/leave").json()
     assert len(mine["requests"]) == 1
     _clear(client)
+
+
+def test_student_cannot_export_another_students_data(client):
+    _as(client, "student-a", "a@example.com", "student")
+    id_a = _enroll_student(client, "student-a", "a@example.com", "CS2024-001")
+    _as(client, "student-b", "b@example.com", "student")
+    id_b = _enroll_student(client, "student-b", "b@example.com", "CS2024-002")
+
+    # B's own export works.
+    assert client.get(f"/api/students/{id_b}/export").status_code == 200
+    # A cannot export B.
+    _as(client, "student-a", "a@example.com", "student")
+    assert client.get(f"/api/students/{id_b}/export").status_code == 403
+    assert client.get(f"/api/students/{id_a}/export").status_code == 200

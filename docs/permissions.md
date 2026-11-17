@@ -24,12 +24,14 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/` | — | engine + counts | no PII beyond aggregate counts |
 | GET | `/api/health` | — | component readiness | never touches the model (NFR-O1) |
 | GET | `/api/health/live` | — | process liveness | for uptime probes |
+| GET | `/api/consent` | — | consent notice | version + summary the register page must acknowledge |
 | GET | `/api/me` | User | caller | role + own student profile |
 | PATCH | `/api/users/{uid}/role` | Admin | target user | audited; admin cannot demote themselves (see below) |
-| POST | `/api/students/enroll` | User | self; **Staff** may specify another `user_uid` | exactly one face required; audited |
+| POST | `/api/students/enroll` | User | self; **Staff** may specify another `user_uid` | exactly one face, quality gate + duplicate check; current `consent_version` required; audited |
 | GET | `/api/students` | User | **Staff:** all · **Student:** self only | filtered by `department` for staff |
 | GET | `/api/students/me` | User | self | `404` if the caller has no student row |
 | GET | `/api/students/me/face` | User | self | owner-only biometric fetch (NFR-P1) |
+| GET | `/api/students/{id}/export` | Owner/Staff | self or any for staff | JSON profile + consent + attendance; photo not inlined; audited |
 | DELETE | `/api/students/{student_id}` | Owner/Staff | self or any for staff | deletes photo, embedding, attendance; audited |
 | POST | `/api/attendance` | User | self; **Staff** may pass `student_uid` | idempotent; DB-enforced uniqueness |
 | GET | `/api/attendance` | User | **Staff:** all · **Student:** own | filters: `student_uid`, `method`, `session_id`, `from`, `to`, `limit` |
@@ -61,6 +63,9 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 5. **Camera/matching endpoints are staff or service key.** `require_camera_caller` compares the
    key with `hmac.compare_digest`.
 6. **Admin privilege changes are audited** (`audit_log` rows via `_audit`).
+7. **Enrollment fails closed on consent.** A missing or stale `consent_version` is a `422`; the
+   database records the accepted version and timestamp. Never accept consent from a client flag
+   without storing evidence of it.
 
 ## Known, deliberate trade-offs
 

@@ -28,15 +28,17 @@ python -m alembic downgrade -1 && python -m alembic upgrade head   # both direct
 Rules:
 - **Model change + migration + test land in the same commit.**
 - Test against a **fresh** database *and* an existing one; `create_all`-era databases must be
-  stamped once (`python -m alembic stamp head`) before their first upgrade — see the note below.
+  stamped at the **baseline** revision once (`python -m alembic stamp 5a3501be40cf`) before their
+  first upgrade — see the note below.
 - Never edit a revision that has been pushed; add a new one.
 - CI runs `upgrade head` on an empty database and fails if the models and migrations disagree.
 
 ## Applying in an environment
 
-- **`AUTO_MIGRATE=true` (default)** — the app applies migrations during startup before it serves
+- **`AUTO_MIGRATE=true`** - the app applies migrations during startup before it serves
   traffic. Simple and safe for one instance; **not** safe to run concurrently from N replicas.
-- **`AUTO_MIGRATE=false`** — run this runbook as an explicit deploy step (recommended for
+  The code default is `false`; Docker/production set it explicitly.
+- **`AUTO_MIGRATE=false`** - run this runbook as an explicit deploy step (recommended for
   multi-replica deployments), then start the new code. See [`deploy.md`](deploy.md).
 
 ## Existing databases created before Alembic was added
@@ -46,11 +48,12 @@ those tables — e.g. a dev `facesnap.db` built by `create_all()` — the upgrad
 "table already exists". Fix once:
 
 ```bash
-python -m alembic stamp head          # record baseline as applied, without running it
-python -m alembic upgrade head        # apply anything newer
+python -m alembic stamp 5a3501be40cf  # record the baseline as applied, without running it
+python -m alembic upgrade head        # apply everything newer (consent columns, ...)
 ```
 `AUTO_MIGRATE=true` does this stamp automatically when it detects pre-existing tables and no
-`alembic_version` row.
+usable `alembic_version` row. Do **not** `stamp head`: that marks later migrations as applied
+without running them, so new columns are silently missing.
 
 ## If a migration fails halfway
 

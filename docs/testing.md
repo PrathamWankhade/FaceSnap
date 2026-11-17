@@ -41,6 +41,9 @@ CI install exactly the same set.
 | `tests/test_metrics.py` | counter/histogram rendering, cumulative buckets, label escaping, bounded routes |
 | `tests/test_evaluation.py` | confusion counts, threshold sweep, monotonic FAR/FRR, EER interpolation, input validation |
 | `tests/test_rate_limit.py` | Redis window counting, outage fallback, `limit=0`, reset |
+| `tests/test_enrollment_quality.py` | enrollment gate: single-face requirement, size, blur, detection confidence, pose, embedding validity |
+| `tests/test_retention.py` | retention dry-run vs. apply, cut-off bounds, audit row, zero/negative-window guard |
+| `tests/test_backup_restore.py` | SQLite online backup is a consistent copy; restore replaces the target; missing source errors |
 
 ### Adding a test
 

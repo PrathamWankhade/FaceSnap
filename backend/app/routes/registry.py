@@ -6,7 +6,7 @@ All writes go through FastAPI so the database stays the single source of truth
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_row, require_roles
+from app.config import CONSENT_VERSION, DUPLICATE_FACE_DISTANCE
 from app.db import (
     Attendance,
     AuditLog,
@@ -52,6 +53,9 @@ class EnrollRequest(BaseModel):
     semester: str = Field(min_length=1, max_length=20)
     image_base64: str = Field(min_length=100, max_length=12_000_000)
     user_uid: str | None = Field(default=None, max_length=128)
+    # Which consent notice the student accepted. Must equal the server's
+    # current CONSENT_VERSION; a stale or missing acknowledgement is rejected.
+    consent_version: str | None = Field(default=None, max_length=30)
 
 
 class AttendanceCreate(BaseModel):
@@ -102,6 +106,7 @@ def student_dict(student: Student) -> dict:
         "semester": student.semester,
         "registeredAt": _iso(student.enrolled_at),
         "hasFaceImage": bool(student.face_image_key),
+        "consentVersion": student.consent_version,
     }
 
 
@@ -180,6 +185,33 @@ def set_role(
 
 
 # ---------------------------------------------------------------------------
+# Consent
+# ---------------------------------------------------------------------------
+CONSENT_SUMMARY = (
+    "FaceSnap stores one enrollment photo and a derived face embedding to verify "
+    "attendance. The photo is stored outside the relational database and the "
+    "embedding can be rebuilt. Attendance records contain the method, timestamp, "
+    "match distance and liveness score. You can delete your profile, photo, "
+    "embedding and attendance history at any time from the student profile."
+)
+
+
+@router.get("/api/consent")
+def consent_notice():
+    """Public consent notice the register page must acknowledge.
+
+    Enrollment rejects a row without the current version, so the browser can
+    never silently enroll someone under an outdated notice.
+    """
+    return {
+        "version": CONSENT_VERSION,
+        "summary": CONSENT_SUMMARY,
+        "policy": "docs/consent.md",
+        "withdrawal": "Deleting the profile removes the photo, embedding and attendance history.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Students / enrollment
 # ---------------------------------------------------------------------------
 @router.post("/api/students/enroll")
@@ -195,22 +227,67 @@ def enroll(
     if target_uid != user.id and user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Only staff can enroll another account.")
 
+    if payload.consent_version != CONSENT_VERSION:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Consent acknowledgement is required and must match the current notice.",
+                "required_consent_version": CONSENT_VERSION,
+            },
+        )
+
     try:
         image_bytes = image_store.decode_data_url(payload.image_base64)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    face_count = face_service.count_faces(image_bytes)
-    if face_count != 1:
+    # One detection pass: quality gates and the embedding come from the same
+    # inference instead of decoding and detecting twice.
+    assessment = face_service.assess_enrollment(image_bytes)
+    if not assessment.get("ok"):
         raise HTTPException(
             status_code=422,
-            detail="Enrollment needs exactly one clearly visible face "
-                   f"(detected {face_count}).",
+            detail={
+                "message": "Enrollment photo rejected.",
+                "reasons": assessment.get("reasons", []),
+                "metrics": assessment.get("metrics", {}),
+                "face_count": assessment.get("face_count", 0),
+            },
         )
-
-    embedding = face_service.get_face_encoding(image_bytes)
-    if embedding is None:
+    embedding = assessment.get("embedding")
+    if embedding is None:  # pragma: no cover - assess_enrollment sets a reason
         raise HTTPException(status_code=422, detail="Could not extract a face embedding.")
+
+    # Duplicate-enrollment guard: the same face may not hold two identities.
+    # Requires the vector index; when it is offline the response says so rather
+    # than pretending a check happened.
+    duplicate_checked = False
+    search = getattr(vector_service, "search", None)
+    if vector_service.is_ready and callable(search):
+        duplicate_checked = True
+        try:
+            matches = search(
+                embedding,
+                limit=5,
+                score_threshold=1.0 - DUPLICATE_FACE_DISTANCE,
+            )
+        except Exception:  # noqa: BLE001 - index errors must not block enrollment
+            matches = []
+            duplicate_checked = False
+        for match in matches:
+            if (
+                match.get("uid") != target_uid
+                and float(match.get("distance", 1.0)) <= DUPLICATE_FACE_DISTANCE
+            ):
+                _audit(db, user, "student.enroll.blocked_duplicate", "student", None)
+                db.commit()
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "This face is already enrolled under another account. "
+                                   "Contact staff if this is a mistake."
+                    },
+                )
 
     # Roll number is unique across the institution.
     clash = db.scalar(select(Student).where(Student.roll_number == payload.roll_number))
@@ -237,6 +314,12 @@ def enroll(
         student.year = payload.year
         student.semester = payload.semester
 
+    # Record consent with the version that was actually accepted. Re-enrolling
+    # after a notice bump records the new version and timestamp.
+    if student.consent_version != CONSENT_VERSION:
+        student.consent_version = CONSENT_VERSION
+        student.consent_at = utcnow()
+
     student.face_image_key = image_store.save(student.id, payload.image_base64)
     db.flush()
 
@@ -258,6 +341,7 @@ def enroll(
         "student": student_dict(student),
         "created": created,
         "embedding_indexed": vector_service.is_ready,
+        "duplicate_checked": duplicate_checked,
     }
 
 
@@ -296,6 +380,48 @@ def my_face(user: User = Depends(get_current_user_row), db: Session = Depends(ge
     if data is None:
         raise HTTPException(status_code=404, detail="No enrollment photo on file.")
     return {"image_base64": "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")}
+
+
+@router.get("/api/students/{student_id}/export")
+def export_student_data(
+    student_id: str,
+    user: User = Depends(get_current_user_row),
+    db: Session = Depends(get_db),
+):
+    """Machine-readable copy of one student's data (access/portability).
+
+    Owner or staff only. The enrollment photo is *not* inlined here — the owner
+    can fetch it from ``/api/students/me/face`` — so an export file does not
+    silently become a biometric archive. The export itself is audited.
+    """
+    student = db.get(Student, student_id)
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    if student.user_id != user.id and user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Not allowed to export this profile.")
+
+    records = db.scalars(
+        select(Attendance)
+        .where(Attendance.student_id == student.id)
+        .order_by(Attendance.captured_at)
+    ).all()
+    _audit(db, user, "student.export", "student", student.id)
+    db.commit()
+
+    return {
+        "schema_version": 1,
+        "exported_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "profile": student_dict(student),
+        "consent": {
+            "version": student.consent_version,
+            "accepted_at": _iso(student.consent_at),
+        },
+        "attendance": [attendance_dict(record) for record in records],
+        "biometric": {
+            "face_image_included": False,
+            "note": "Enrollment photo is available to the owner at /api/students/me/face.",
+        },
+    }
 
 
 @router.delete("/api/students/{student_id}")

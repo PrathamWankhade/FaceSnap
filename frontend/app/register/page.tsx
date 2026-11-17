@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, CheckCircle2, RefreshCw, AlertCircle, LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,8 +21,26 @@ export default function RegisterPage() {
   });
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [consent, setConsent] = useState<{ version: string; summary: string } | null>(null);
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const webcamRef = useRef<Webcam>(null);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get<{ version: string; summary: string }>('/api/consent')
+      .then((notice) => {
+        if (active) setConsent(notice);
+      })
+      .catch(() => {
+        // The submit path fails closed (the server rejects a missing version),
+        // so a notice fetch failure never silently enrolls anyone.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,6 +71,14 @@ export default function RegisterPage() {
       toast.error("Please fill in all fields.");
       return;
     }
+    if (!consentAccepted) {
+      toast.error("Please accept the biometric consent notice to continue.");
+      return;
+    }
+    if (!consent) {
+      toast.error("Consent notice could not be loaded. Refresh the page and try again.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -75,6 +101,7 @@ export default function RegisterPage() {
           year: formData.year,
           semester: formData.semester,
           image_base64: imageSrc,
+          consent_version: consent.version,
         }
       );
 
@@ -145,7 +172,7 @@ export default function RegisterPage() {
             Identity Registration
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Enroll your facial data securely into the institutional database using advanced CNN architectures.
+            Enroll your facial data securely into the institutional database using pretrained ArcFace embeddings.
           </p>
         </motion.div>
 
@@ -186,9 +213,26 @@ export default function RegisterPage() {
               <div className="bg-amber-50 dark:bg-amber-950/50 p-5 rounded-2xl mb-8 border border-amber-100 dark:border-amber-900/50 shadow-inner">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
-                    Biometric notice: your photo is used to create a face embedding for attendance matching. It is stored under your account and you can delete it anytime via profile delete.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+                      {consent?.summary ??
+                        'Biometric notice: your photo is used to create a face embedding for attendance matching. It is stored under your account and you can delete it at any time.'}
+                    </p>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={consentAccepted}
+                        onChange={(e) => setConsentAccepted(e.target.checked)}
+                        className="mt-0.5 h-5 w-5 rounded border-amber-300 text-indigo-600 focus:ring-indigo-500"
+                        required
+                      />
+                      <span className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        I have read and accept consent version {consent?.version ?? '(loading)'}. I understand
+                        my photo and embedding are stored for attendance verification and that deleting my
+                        profile removes them.
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); setStep(2); }} className="space-y-6">
@@ -276,7 +320,12 @@ export default function RegisterPage() {
                 <div className="pt-8 flex justify-end">
                   <button
                     type="submit"
-                    className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full font-bold hover:from-indigo-700 hover:to-blue-700 transition-all shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+                    disabled={!consentAccepted}
+                    className={`px-8 py-4 rounded-full font-bold transition-all shadow-md hover:-translate-y-0.5 ${
+                      consentAccepted
+                        ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                    }`}
                   >
                     Continue to Capture
                   </button>

@@ -8,6 +8,7 @@ import base64
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import CONSENT_VERSION
 from app.db import Base, engine
 from app.routes import registry
 
@@ -22,6 +23,26 @@ class FakeFaceService:
 
     def get_face_encoding(self, image_bytes):
         return [0.01] * 512
+
+    def assess_enrollment(self, image_bytes):
+        count = self.count_faces(image_bytes)
+        if count != 1:
+            return {
+                "ok": False,
+                "face_count": count,
+                "reasons": [
+                    f"Enrollment needs exactly one clearly visible face (detected {count})."
+                ],
+                "metrics": {},
+                "embedding": None,
+            }
+        return {
+            "ok": True,
+            "face_count": 1,
+            "reasons": [],
+            "metrics": {},
+            "embedding": self.get_face_encoding(image_bytes),
+        }
 
 
 class FakeVectorService:
@@ -38,6 +59,9 @@ class FakeVectorService:
 
     def count(self):
         return len(self.points)
+
+    def search(self, embedding, limit=1, score_threshold=0.6):
+        return []
 
 
 @pytest.fixture()
@@ -62,6 +86,7 @@ def enroll(client, **overrides):
         "year": "3",
         "semester": "5",
         "image_base64": IMAGE,
+        "consent_version": CONSENT_VERSION,
     }
     payload.update(overrides)
     return client.post("/api/students/enroll", json=payload)
@@ -125,7 +150,9 @@ def test_enrollment_rejects_multi_face_images(client, monkeypatch):
     monkeypatch.setattr(registry, "face_service", TwoFaces())
     res = enroll(client)
     assert res.status_code == 422
-    assert "exactly one" in res.json()["detail"]
+    detail = res.json()["detail"]
+    assert detail["face_count"] == 2
+    assert any("exactly one" in reason for reason in detail["reasons"])
 
 
 def test_attendance_is_idempotent_per_method_and_day(client):
@@ -273,3 +300,82 @@ def test_daily_attendance_index_blocks_concurrent_duplicates(client):
         with pytest.raises(IntegrityError):
             db.commit()
         db.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Consent, duplicate enrollment, data export
+# ---------------------------------------------------------------------------
+def test_consent_endpoint_publishes_the_enforced_version(client):
+    res = client.get("/api/consent")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["version"] == CONSENT_VERSION
+    assert "photo" in body["summary"].lower()
+    assert body["policy"] == "docs/consent.md"
+
+
+def test_enrollment_requires_the_current_consent_version(client):
+    missing = enroll(client, consent_version=None)
+    assert missing.status_code == 422
+    assert missing.json()["detail"]["required_consent_version"] == CONSENT_VERSION
+
+    stale = enroll(client, consent_version="2020-01")
+    assert stale.status_code == 422
+
+
+def test_stored_consent_matches_the_accepted_version(client):
+    assert enroll(client).status_code == 200
+    me = client.get("/api/me").json()
+    assert me["student"]["consentVersion"] == CONSENT_VERSION
+
+    from app.db import SessionLocal, Student
+
+    with SessionLocal() as db:
+        student = db.query(Student).first()
+        assert student.consent_version == CONSENT_VERSION
+        assert student.consent_at is not None
+
+
+def test_duplicate_face_under_another_identity_is_blocked(client, monkeypatch):
+    class DuplicateVector(FakeVectorService):
+        def search(self, embedding, limit=1, score_threshold=0.6):
+            return [{"uid": "someone-else", "name": "B", "roll_no": "CS-002", "distance": 0.05}]
+
+    monkeypatch.setattr(registry, "vector_service", DuplicateVector())
+    res = enroll(client)
+    assert res.status_code == 409
+    assert "already enrolled" in res.json()["detail"]["message"]
+    # Nothing was written.
+    assert client.get("/api/students").json()["total"] == 0
+
+
+def test_matching_own_embedding_does_not_block_re_enrollment(client, monkeypatch):
+    class SelfVector(FakeVectorService):
+        def search(self, embedding, limit=1, score_threshold=0.6):
+            return [{"uid": "dev", "name": "Ada", "roll_no": "CS2024-001", "distance": 0.05}]
+
+    monkeypatch.setattr(registry, "vector_service", SelfVector())
+    res = enroll(client)
+    assert res.status_code == 200
+    assert res.json()["duplicate_checked"] is True
+
+
+def test_export_returns_profile_consent_and_attendance(client):
+    assert enroll(client).status_code == 200
+    student_id = client.get("/api/students").json()["students"][0]["id"]
+    assert client.post("/api/attendance", json={"method": "individual_live"}).status_code == 200
+
+    res = client.get(f"/api/students/{student_id}/export")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["schema_version"] == 1
+    assert body["profile"]["rollNumber"] == "CS2024-001"
+    assert body["consent"]["version"] == CONSENT_VERSION
+    assert body["consent"]["accepted_at"].endswith("Z")
+    assert len(body["attendance"]) == 1
+    assert body["biometric"]["face_image_included"] is False
+
+    from app.db import AuditLog, SessionLocal
+
+    with SessionLocal() as db:
+        assert db.query(AuditLog).filter(AuditLog.action == "student.export").count() == 1

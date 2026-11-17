@@ -8,6 +8,12 @@ from app.config import (
     ARCFACE_THRESHOLD,
     DETECTION_CONFIDENCE,
     EMBEDDING_DIM,
+    ENROLLMENT_MAX_ROLL,
+    ENROLLMENT_MAX_YAW,
+    ENROLLMENT_MIN_BRIGHTNESS,
+    ENROLLMENT_MIN_DET_SCORE,
+    ENROLLMENT_MIN_FACE_PX,
+    ENROLLMENT_MIN_SHARPNESS,
     LOW_LIGHT_MAX_GAMMA,
     LOW_LIGHT_TARGET_MEAN,
     LOW_LIGHT_THRESHOLD,
@@ -131,6 +137,129 @@ class FaceService:
         except Exception:
             return 0
 
+    @staticmethod
+    def _normalised_embedding(face):
+        """L2-normalised 512-d embedding, or ``None`` when unusable."""
+        embedding = np.asarray(face.embedding, dtype=np.float32)
+        if embedding.size != EMBEDDING_DIM:
+            return None
+        norm = float(np.linalg.norm(embedding))
+        if norm <= 0:
+            return None
+        return (embedding / norm).tolist()
+
+    @staticmethod
+    def _kps_pose(kps) -> tuple[float | None, float | None]:
+        """Estimate ``(yaw_ratio, roll_degrees)`` from the five landmarks.
+
+        Yaw is the nose's horizontal offset from the eye midpoint, divided by
+        the interocular distance: 0 for a frontal face, growing as the head
+        turns. Roll is the eye-line angle. This is a coarse screen, not a head
+        pose measurement — enough to reject a profile shot at enrollment.
+        """
+        if kps is None or len(kps) < 3:
+            return None, None
+        left_eye, right_eye, nose = kps[0], kps[1], kps[2]
+        dx = float(right_eye[0]) - float(left_eye[0])
+        dy = float(right_eye[1]) - float(left_eye[1])
+        interocular = math.hypot(dx, dy)
+        if interocular <= 0:
+            return None, None
+        eye_mid_x = (float(left_eye[0]) + float(right_eye[0])) / 2.0
+        yaw_ratio = abs(float(nose[0]) - eye_mid_x) / interocular
+        roll = abs(math.degrees(math.atan2(dy, dx)))
+        return float(yaw_ratio), float(roll)
+
+    def assess_enrollment(self, image_bytes) -> dict:
+        """One detection pass that both scores quality and yields the embedding.
+
+        Replaces the old "count faces, then encode" double inference. Every
+        rejection carries machine-readable reasons plus the measured metrics so
+        the UI can tell the student what to fix (and tests can assert bounds).
+        """
+        result: dict = {
+            "ok": False,
+            "face_count": 0,
+            "reasons": [],
+            "metrics": {},
+            "embedding": None,
+        }
+        if self.app is None:
+            result["reasons"].append("Face recognition model is not loaded.")
+            return result
+        if not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
+            result["reasons"].append("Image is empty or too large.")
+            return result
+
+        rgb_img = self._prepare_rgb(image_bytes)
+        if rgb_img is None:
+            result["reasons"].append("Image could not be decoded or is too large.")
+            return result
+
+        try:
+            faces = self.app.get(rgb_img)
+        except Exception as exc:  # noqa: BLE001 - detector failures are a 422, not a 500
+            print(f"Enrollment detection error: {exc}")
+            result["reasons"].append("Face detection failed for this image.")
+            return result
+
+        face_count = len(faces)
+        result["face_count"] = face_count
+        if face_count != 1:
+            result["reasons"].append(
+                f"Enrollment needs exactly one clearly visible face (detected {face_count})."
+            )
+            return result
+
+        face = faces[0]
+        height, width = rgb_img.shape[:2]
+        x1, y1, x2, y2 = (int(round(float(v))) for v in face.bbox[:4])
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(width, x2), min(height, y2)
+        box_w, box_h = max(0, x2 - x1), max(0, y2 - y1)
+
+        sharpness = 0.0
+        brightness = 0.0
+        if box_w >= 2 and box_h >= 2:
+            crop = rgb_img[y1:y2, x1:x2]
+            gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+            sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+            brightness = float(gray.mean())
+
+        det_score = float(getattr(face, "det_score", 1.0))
+        yaw, roll = self._kps_pose(getattr(face, "kps", None))
+        result["metrics"] = {
+            "face_width": box_w,
+            "face_height": box_h,
+            "det_score": round(det_score, 4),
+            "sharpness": round(sharpness, 2),
+            "brightness": round(brightness, 2),
+            "yaw_ratio": None if yaw is None else round(yaw, 4),
+            "roll_degrees": None if roll is None else round(roll, 2),
+        }
+
+        if box_w < ENROLLMENT_MIN_FACE_PX or box_h < ENROLLMENT_MIN_FACE_PX:
+            result["reasons"].append(
+                f"Face is too small in frame (minimum {ENROLLMENT_MIN_FACE_PX}px). Move closer."
+            )
+        if det_score < ENROLLMENT_MIN_DET_SCORE:
+            result["reasons"].append("Face is not clear enough for enrollment. Retake the photo.")
+        if sharpness < ENROLLMENT_MIN_SHARPNESS:
+            result["reasons"].append("Photo is blurry. Hold still and retake.")
+        if brightness < ENROLLMENT_MIN_BRIGHTNESS:
+            result["reasons"].append("Photo is too dark. Find better lighting.")
+        if yaw is not None and yaw > ENROLLMENT_MAX_YAW:
+            result["reasons"].append("Face is turned too far to the side. Look at the camera.")
+        if roll is not None and roll > ENROLLMENT_MAX_ROLL:
+            result["reasons"].append("Head is tilted. Keep your eyes level and retake.")
+
+        result["embedding"] = self._normalised_embedding(face)
+        if result["embedding"] is None:
+            result["reasons"].append("Could not extract a usable face embedding.")
+
+        result["ok"] = not result["reasons"]
+        return result
+
     def get_face_encoding(self, image_bytes):
         if self.app is None:
             return None
@@ -143,18 +272,8 @@ class FaceService:
             faces = self.app.get(rgb_img)
             if not faces:
                 return None
-            if len(faces) > 1:
-                # Ambiguous enrollment/verification image: use largest but flag via size order.
-                # Callers requiring strict single-face should check face count separately.
-                pass
             faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
-            embedding = np.asarray(faces[0].embedding, dtype=np.float32)
-            if embedding.size != EMBEDDING_DIM:
-                return None
-            norm = float(np.linalg.norm(embedding))
-            if norm <= 0:
-                return None
-            return (embedding / norm).tolist()
+            return self._normalised_embedding(faces[0])
         except Exception as e:
             print(f"Encoding error: {e}")
             return None

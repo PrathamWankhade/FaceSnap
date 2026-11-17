@@ -85,9 +85,10 @@ backend/
   app/metrics.py  # Prometheus text registry
   app/middleware/ # request ids, JSON logs, security headers
   app/routes/     # registry, verification, detection, pi_routes
-  app/services/   # face_service (ArcFace + low-light), liveness_service,
-                  #   evaluation (FAR/FRR/EER), vector_service, image_store, camera
-  scripts/        # evaluate_recognition.py (dataset-driven benchmark)
+  app/services/   # face_service (ArcFace + low-light + enrollment gates), liveness_service,
+                  #   evaluation (FAR/FRR/EER), vector_service, image_store, camera,
+                  #   retention, backup
+  scripts/        # evaluate_recognition.py, purge_retention.py, backup_db.py
   alembic/        # migrations
   tests/          # pytest
 docs/             # see §5
@@ -100,6 +101,8 @@ docs/             # see §5
 | Personas, scope, non-functional requirements | `docs/system-design.md` |
 | Paper claims vs. what the code does | `docs/paper-alignment.md` |
 | Recognition accuracy protocol (FAR/FRR/EER) | `docs/evaluation.md` |
+| Enterprise parity, partial features, non-goals | `docs/enterprise-gap-analysis.md` |
+| Consent notice + what is collected | `docs/consent.md` |
 | Why a choice was made | `docs/decisions/` (ADRs) |
 | Architecture, request flow, data model | `docs/ARCHITECTURE.md` |
 | Who may call what (route matrix) | `docs/permissions.md` |

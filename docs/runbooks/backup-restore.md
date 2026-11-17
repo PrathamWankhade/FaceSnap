@@ -26,6 +26,17 @@ Produces `backups/facesnap-<UTC>.tar.gz` containing:
 
 The script **fails non-zero** if the dump or archive is empty or unreadable.
 
+For a local SQLite deployment, `backend/scripts/backup_db.py` performs the same consistent copy
+using SQLite's online backup API (tested in `backend/tests/test_backup_restore.py`):
+
+```bash
+cd backend
+python scripts/backup_db.py --out backups/facesnap-2026-11-17.db
+python scripts/backup_db.py --restore backups/facesnap-2026-11-17.db --out ./facesnap.db
+```
+
+It refuses to run when `DATABASE_URL` is Postgres — use `pg_dump`/`pg_restore` there.
+
 ### Schedule
 
 Daily automated + before every migration-bearing deploy (see [`deploy.md`](deploy.md)).

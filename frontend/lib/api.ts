@@ -16,6 +16,14 @@ async function parseError(res: Response): Promise<string> {
     const body = await res.json();
     if (typeof body?.detail === 'string') return body.detail;
     if (Array.isArray(body?.detail) && body.detail[0]?.msg) return String(body.detail[0].msg);
+    // Structured detail from the enrollment quality gate: show the reason
+    // (e.g. "Photo is blurry") instead of a generic 422.
+    if (body?.detail && typeof body.detail === 'object') {
+      const message = typeof body.detail.message === 'string' ? body.detail.message : '';
+      const reasons = Array.isArray(body.detail.reasons) ? body.detail.reasons.join(' ') : '';
+      const combined = [message, reasons].filter(Boolean).join(' ');
+      if (combined) return combined;
+    }
   } catch {
     // Non-JSON error body.
   }

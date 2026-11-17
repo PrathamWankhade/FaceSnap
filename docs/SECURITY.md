@@ -27,11 +27,13 @@
 
 ## Biometric data handling
 
-- **Consent** — registration shows a biometric-use notice before capture.
+- **Consent** - registration shows the current biometric-use notice and refuses to enroll without
+  the matching `consent_version`. The accepted version and timestamp are stored on the student row;
+  the public notice is `GET /api/consent` and the template is [`consent.md`](consent.md).
 - **Minimization** — matching uses non-reversible embeddings. Enrollment originals are stored in `FACE_IMAGE_DIR` (outside the database), referenced only by a key; they are never exposed in list/profile responses. `GET /api/students/me/face` is owner-only and exists solely so the verification screen can compare the live capture.
 - **Deletion** — `DELETE /api/students/{id}` (owner or admin) removes the student row, cascades attendance/leave, deletes the stored photo and removes the Qdrant vector in one request.
 - **Role separation** — list responses contain academic data only; staff never receive another student's photo through the API.
-- **Known gaps** (do not use real student records until closed): no automated retention-expiry job, no independent audit of the rPPG calibration across devices/cameras, and no schema-migration tool (Alembic) yet. Re-enrollment replaces a photo rather than keeping a version history.
+- **Known gaps** (do not use real student records until closed): no automatic biometric expiry (attendance retention is an audited, opt-in operator job — `backend/scripts/purge_retention.py`), no independent audit of the rPPG calibration across devices/cameras, and no encryption at rest performed by the application (host/volume encryption is the deployment responsibility). Re-enrollment replaces a photo rather than keeping a version history.
 
 ## Reporting issues
 

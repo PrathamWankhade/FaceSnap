@@ -77,7 +77,10 @@ These are the acceptance criteria the ops/CI layers below exist to satisfy.
   third-party analytics store. Only the object key is in SQL.
 - **NFR-P2** A student can delete their profile, photo, embedding and attendance; deletion is
   cascading and audited.
-- **NFR-P3** Enrollment requires an explicit consent acknowledgement in the UI.
+- **NFR-P3** Enrollment requires the current consent notice version, stored on the student row
+  (`consent_version`, `consent_at`); a missing or stale version is rejected.
+- **NFR-P4** A student can export their profile, consent record and attendance as JSON
+  (`GET /api/students/{id}/export`); the export is audited and does not inline the photo.
 
 ### Availability & operability
 - **NFR-O1** `/api/health/live` answers `200` while the process is up; `/api/health` reports
@@ -86,7 +89,9 @@ These are the acceptance criteria the ops/CI layers below exist to satisfy.
   to every log line and error.
 - **NFR-O3** Logs are structured JSON in production and carry no tokens, keys or image bytes.
 - **NFR-O4** A backup exists, is automated, and has been **restored at least once into a clean
-  environment**. An untested backup is not a backup.
+  environment**. An untested backup is not a backup. SQLite backup/restore is implemented
+  (`backend/scripts/backup_db.py`, tested in `tests/test_backup_restore.py`); Postgres deployments
+  use `pg_dump`/`pg_restore` and the quarterly restore drill is still a manual runbook step.
 - **NFR-O5** Schema changes are versioned migrations; `alembic upgrade head` is the only supported
   way to change production schema.
 

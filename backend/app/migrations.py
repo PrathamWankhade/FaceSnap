@@ -20,12 +20,18 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger("facesnap.migrations")
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+# The first revision. A create_all-era database already contains that schema,
+# so it is stamped at the baseline and then upgraded — stamping *head* would
+# skip every later migration (and silently omit new columns).
+BASELINE_REVISION = "5a3501be40cf"
 
 
 def alembic_config(engine: Engine | None = None) -> Config:
@@ -47,14 +53,33 @@ def schema_state(engine: Engine) -> tuple[bool, bool]:
     return has_tables, has_version
 
 
+def _has_version_row(engine: Engine) -> bool:
+    """Whether ``alembic_version`` exists *and* names a revision.
+
+    An empty table is possible after a failed upgrade attempt; treating it as
+    "already stamped" would replay the baseline into existing tables.
+    """
+    with engine.connect() as connection:
+        if not inspect(connection).has_table("alembic_version"):
+            return False
+        try:
+            value = connection.execute(
+                text("select version_num from alembic_version limit 1")
+            ).scalar()
+        except SQLAlchemyError:
+            return False
+    return bool(value)
+
+
 def upgrade_to_head(engine: Engine) -> None:
     """Bring the database to head, stamping a pre-Alembic schema first."""
-    has_tables, has_version = schema_state(engine)
+    has_tables, _has_version_table = schema_state(engine)
     config = alembic_config(engine)
-    if has_tables and not has_version:
+    if has_tables and not _has_version_row(engine):
         logger.warning(
-            "Existing schema without alembic_version; stamping the baseline revision."
+            "Existing schema without an Alembic revision; stamping baseline %s.",
+            BASELINE_REVISION,
         )
-        command.stamp(config, "head")
+        command.stamp(config, BASELINE_REVISION)
     command.upgrade(config, "head")
     logger.info("Database schema is at Alembic head.")

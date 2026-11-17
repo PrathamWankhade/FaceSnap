@@ -109,6 +109,11 @@ class Student(Base):
     year: Mapped[str] = mapped_column(String(20))
     semester: Mapped[str] = mapped_column(String(20))
     face_image_key: Mapped[str | None] = mapped_column(String(255))
+    # Consent is recorded, not assumed: which notice version the student
+    # accepted and when. Rows enrolled before versioning have NULL and can be
+    # found for re-consent.
+    consent_version: Mapped[str | None] = mapped_column(String(30))
+    consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

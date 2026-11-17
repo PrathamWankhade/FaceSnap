@@ -61,8 +61,8 @@ These are concrete and tested; use them instead of unbacked accuracy claims.
 5. Scope "scalability" and "automation" per B7/B10; rename "advanced analytics" per B8.
 6. Add a methodology section that cites this repository's NFRs, idempotency constraints, liveness
    design and privacy model. The docs are written to be citable.
-7. Add a limitations paragraph: best-effort liveness, single camera stream, no retention job, no
-   multi-node benchmark, no certified PAD.
+7. Add a limitations paragraph: best-effort liveness, single camera stream, opt-in attendance
+   retention with no automatic biometric expiry, no multi-node benchmark, no certified PAD.
 
 ## E. What is still not true (do not write these)
 
