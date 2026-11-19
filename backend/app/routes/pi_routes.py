@@ -3,7 +3,7 @@ import time
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -46,14 +46,31 @@ def pi_video_feed(_=Depends(require_camera_caller)):
 
 
 @router.get("/api/pi/capture")
-def pi_capture_frame(_=Depends(require_camera_caller)):
+def pi_capture_frame(
+    anonymize: bool = Query(default=False),
+    _=Depends(require_camera_caller),
+):
     success, frame = pi_camera.read()
     if not success or frame is None:
         raise HTTPException(status_code=503, detail="Pi camera stream unavailable")
     ret, buffer = cv2.imencode('.jpg', frame)
     if not ret:
         raise HTTPException(status_code=500, detail="Failed to encode frame")
-    base64_str = base64.b64encode(buffer).decode('utf-8')
+    data = buffer.tobytes()
+
+    # Shared capture frames may leave the device: honour the same anonymize
+    # flag (and ANONYMIZE_EXPORTS) as the enrollment-photo fetch. The stored
+    # frame is not modified — this blurs only the bytes being returned.
+    from app.config import ANONYMIZE_EXPORTS
+
+    if anonymize or ANONYMIZE_EXPORTS:
+        from app.services.anonymizer import blur_regions
+
+        boxes = face_service.detect_face_boxes(data)
+        if boxes:
+            data = blur_regions(data, boxes)
+
+    base64_str = base64.b64encode(data).decode('utf-8')
     return {"image_base64": base64_str}
 
 
