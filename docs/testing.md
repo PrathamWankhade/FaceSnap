@@ -94,6 +94,9 @@ Specs live in `frontend/e2e/`. What is covered today and **what deliberately is 
   signed-in UI — enrollment rejection → actionable checklist + metric formatting, consent
   staleness (including "unknown current notice never blocks"), and challenge copy (known and
   fallback names).
+- Covered without a session: `e2e/a11y.spec.ts` runs axe-core on `/`, `/about`, `/contact` and
+  `/register` and fails on critical/serious WCAG 2 A/AA findings. It is a floor, not a WCAG
+  certification; signed-in screens still need the manual pass.
 - **Not covered:** Google sign-in, the consent gate modal, the active-liveness toggle, role-aware
   navigation after login, attendance history rendering, and a real webcam liveness scan. Sign-in
   needs Firebase credentials; synthetic video is correctly rejected by the liveness service, so a

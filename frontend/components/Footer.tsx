@@ -21,14 +21,14 @@ export default function Footer() {
               Revolutionizing Attendance System
             </p>
             <div className="flex items-center gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
-                <Twitter className="w-4 h-4" />
+              <a href="#" aria-label="FaceSnap on Twitter" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
+                <Twitter className="w-4 h-4" aria-hidden="true" />
               </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
-                <Linkedin className="w-4 h-4" />
+              <a href="#" aria-label="FaceSnap on LinkedIn" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
+                <Linkedin className="w-4 h-4" aria-hidden="true" />
               </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
-                <Github className="w-4 h-4" />
+              <a href="#" aria-label="FaceSnap on GitHub" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all hover:-translate-y-1">
+                <Github className="w-4 h-4" aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -93,13 +93,13 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             &copy; {new Date().getFullYear()} FaceSnap System. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
-            <a href="#" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">Privacy Policy</a>
-            <a href="#" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">Terms of Service</a>
-            <a href="#" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">Cookie Settings</a>
+            <a href="#" className="text-sm text-slate-400 hover:text-slate-300 transition-colors">Privacy Policy</a>
+            <a href="#" className="text-sm text-slate-400 hover:text-slate-300 transition-colors">Terms of Service</a>
+            <a href="#" className="text-sm text-slate-400 hover:text-slate-300 transition-colors">Cookie Settings</a>
           </div>
         </div>
       </div>

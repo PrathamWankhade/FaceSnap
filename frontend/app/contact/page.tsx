@@ -120,30 +120,30 @@ export default function ContactPage() {
                   <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="grid md:grid-cols-2 gap-8">
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">First Name</label>
-                        <input type="text" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="Jane" />
+                        <label htmlFor="contact-first-name" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">First Name</label>
+                        <input id="contact-first-name" type="text" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="Jane" />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Last Name</label>
-                        <input type="text" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="Doe" />
+                        <label htmlFor="contact-last-name" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Last Name</label>
+                        <input id="contact-last-name" type="text" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="Doe" />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Email Address</label>
-                      <input type="email" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="jane@example.com" />
+                      <label htmlFor="contact-email" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Email Address</label>
+                      <input id="contact-email" type="email" required className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" placeholder="jane@example.com" />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Subject</label>
-                      <select className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 appearance-none shadow-sm">
+                      <label htmlFor="contact-subject" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Subject</label>
+                      <select id="contact-subject" className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100 appearance-none shadow-sm">
                         <option>General Inquiry</option>
                         <option>Technical Support</option>
-                        <option>Sales & Pricing</option>
+                        <option>Sales &amp; Pricing</option>
                         <option>Partnership</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Message</label>
-                      <textarea required rows={5} className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 resize-none text-slate-900 dark:text-slate-100 shadow-sm" placeholder="How can we help you?" />
+                      <label htmlFor="contact-message" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider ml-1">Message</label>
+                      <textarea id="contact-message" required rows={5} className="w-full px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 resize-none text-slate-900 dark:text-slate-100 shadow-sm" placeholder="How can we help you?" />
                     </div>
                     <motion.button
                       whileHover={{ scale: 1.02 }}

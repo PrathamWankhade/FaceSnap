@@ -88,9 +88,10 @@ export default function Chatbot() {
           whileTap={{ scale: 0.9 }}
           transition={{ type: 'spring', bounce: 0.5 }}
           onClick={() => setIsOpen(true)}
+          aria-label="Open FaceSnap assistant"
           className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full shadow-[0_0_30px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center z-50 hover:from-indigo-700 hover:to-blue-700 transition-colors border-4 border-white"
         >
-          <MessageSquare className="w-7 h-7" />
+          <MessageSquare className="w-7 h-7" aria-hidden="true" />
         </motion.button>
       )}
 
@@ -118,11 +119,11 @@ export default function Chatbot() {
                 </div>
               </div>
               <div className="flex items-center gap-2 relative z-10">
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setIsMinimized(!isMinimized)} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white">
-                  {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setIsMinimized(!isMinimized)} aria-label={isMinimized ? 'Expand assistant' : 'Minimize assistant'} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white">
+                  {isMinimized ? <Maximize2 className="w-4 h-4" aria-hidden="true" /> : <Minimize2 className="w-4 h-4" aria-hidden="true" />}
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white">
-                  <X className="w-4 h-4" />
+                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setIsOpen(false)} aria-label="Close assistant" className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white">
+                  <X className="w-4 h-4" aria-hidden="true" />
                 </motion.button>
               </div>
             </div>
@@ -159,9 +160,9 @@ export default function Chatbot() {
 
                 <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
                   <form onSubmit={handleSend} className="flex items-center gap-3">
-                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your message..." className="flex-1 px-5 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" disabled={!input.trim() || isLoading} className="p-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-600/20">
-                      <Send className="w-5 h-5" />
+                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message to FaceSnap assistant" placeholder="Type your message..." className="flex-1 px-5 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" disabled={!input.trim() || isLoading} aria-label="Send message" className="p-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-600/20">
+                      <Send className="w-5 h-5" aria-hidden="true" />
                     </motion.button>
                   </form>
                 </div>

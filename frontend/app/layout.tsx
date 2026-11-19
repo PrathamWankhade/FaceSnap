@@ -34,8 +34,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ErrorBoundary>
           <ThemeProvider>
           <AuthProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:bg-indigo-600 focus:px-5 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg"
+            >
+              Skip to main content
+            </a>
             <Navigation />
-            <main className="flex-1 flex flex-col">
+            <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
               {children}
             </main>
             <Footer />
