@@ -58,7 +58,7 @@ These are correctness properties, not marketing:
 |---|---|---|
 | Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`, staff-only) plus per-camera worker health tracking, exponential-backoff reconnect scheduling, PTZ command queue (`/api/cameras/{id}/health`, `/ptz`). Actual RTSP/ONVIF device control still needs hardware + a driver. |
 | Video analytics (counting, crowd density, zones, loitering) | ✕ | Different product (VMS analytics), different consent posture. See ADR 0002 and the non-goals in `docs/system-design.md`. |
-| Real-time alerting (push/SMS/webhook) | ◐ | Webhook alerting added (`app/services/notifier.py`, `ALERT_WEBHOOK_URL`); fires on health degradation and error-rate spikes. Email/SMS still TODO. |
+| Real-time alerting (push/SMS/webhook) | ◐ | Webhook (`ALERT_WEBHOOK_URL`) and email (`ALERT_EMAIL_TO` + `SMTP_*`) alerting in `app/services/notifier.py`; fires on health degradation and error-rate spikes. SMS/pager still TODO (needs a provider contract). |
 | PTZ control, camera health, auto-reconnect | ○ | Camera service exposes health; no PTZ/reconnect logic. Needs a device protocol layer. |
 | Forensic face search over footage | ✕ | Would turn an attendance tool into surveillance; requires retention, legal basis and a separate access model. |
 | Cross-camera re-identification | ✕ | Same reason as forensic search. |
@@ -99,7 +99,7 @@ These are correctness properties, not marketing:
 | Gap | Status | Reality / next step |
 |---|---|---|
 | Attendance retention-expiry job | ✅ | `scripts/purge_retention.py`, dry-run by default, positive-window guard, audited; tested in `tests/test_retention.py`. |
-| Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; there is no automatic biometric expiry because that is an institutional policy decision (documented in `docs/consent.md`). |
+| Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; an opt-in automated purge of *inactive* students exists (`scripts/purge_retention.py --students --student-days N`, dry-run default, audited per deletion) but is disabled until an institutional policy sets the window (documented in `docs/consent.md`). |
 | Data export (access/portability) | ✅ | `GET /api/students/{id}/export` (owner or staff, audited) returns profile, consent, attendance and a biometric note; tested. |
 | Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version, and `ConsentGate` blocks the student scan until the current notice is accepted (`POST /api/consent/accept`, audited); migration included. |
 | Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` can blur face regions; wired into `/api/students/me/face?anonymize=true` and the `ANONYMIZE_EXPORTS` flag. On-device inference does not exist. |
@@ -115,7 +115,7 @@ These are correctness properties, not marketing:
 | Visitor management / watchlists | ✕ | Explicitly surveillance-adjacent; out of scope. |
 | Shift/overtime/payroll (T&A beyond marking) | ✕ | Different product (workforce management). |
 | Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` and `/api/analytics/trends` feed a staff-only `/analytics` page (overview cards, method breakdown, 30-day daily trend). CSV export via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
-| Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category. There is no case history or per-reviewer audit view yet. |
+| Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category, plus a per-item audit trail (`GET /api/detections/review/{id}/history`) covering status transitions and assignment. Per-reviewer workload views still TODO. |
 | WCAG certification / i18n | ◐ | No certification. Automated axe gate on public pages (critical/serious). Lightweight i18n scaffolding with `en` and `hi` locales and a nav toggle; full translation coverage is still open. |
 | Offline-first | ✕ | Fails closed on connectivity loss; offline conflict resolution is a large design surface. |
 | Mask/temperature screening | ✕ | Pandemic-era feature, no sensor, no consent basis. |

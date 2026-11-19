@@ -42,8 +42,16 @@ CI install exactly the same set.
 | `tests/test_evaluation.py` | confusion counts, threshold sweep, monotonic FAR/FRR, EER interpolation, input validation |
 | `tests/test_rate_limit.py` | Redis window counting, outage fallback, `limit=0`, reset |
 | `tests/test_enrollment_quality.py` | enrollment gate: single-face requirement, size, blur, detection confidence, pose, embedding validity |
-| `tests/test_retention.py` | retention dry-run vs. apply, cut-off bounds, audit row, zero/negative-window guard |
+| `tests/test_retention.py` | retention dry-run vs. apply, cut-off bounds, audit row, zero/negative-window guard, inactive-student (biometric) purge dry-run + guard |
 | `tests/test_backup_restore.py` | SQLite online backup is a consistent copy; restore replaces the target; missing source errors |
+| `tests/test_sprint_features.py` | alerting (webhook + email/SMTP, cooldown, thresholds), review queue list/resolve + per-item history, drift histogram, model version, CSV report |
+| `tests/test_permissions_new_routes.py` | 403 for students on staff-only routes added after the initial matrix (model-info, audit, reports, review, cameras, trends, SCIM-adjacent) |
+| `tests/test_events.py` | webhook event bus: noop, allowlist, fan-out, retry |
+| `tests/test_cameras_trends.py` | staff-only camera registry CRUD, trends endpoint, week-bucketing |
+| `tests/test_camera_worker.py` | camera health transitions, exponential-backoff reconnect scheduling, bounded PTZ queue |
+| `tests/test_scim.py` | SCIM 2.0 token gate (401/503), CRUD lifecycle, deprovision, 204 delete |
+| `tests/test_chaos.py` | dependency-down behaviour: health/enrollment/detect fail closed when the DB/vector/model is unavailable, plus 429 under rate limit |
+| `tests/test_migrations.py` | fresh DB reaches `head`, baseline is stamped not replayed, upgrade is idempotent, pre-consent schema gains new columns |
 
 ### Adding a test
 
