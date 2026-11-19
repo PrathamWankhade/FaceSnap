@@ -56,7 +56,7 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`) added; per-camera RTSP workers and scheduler still planned. |
+| Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`, staff-only because stream URLs can carry RTSP credentials) with tests; per-camera RTSP workers and scheduler still planned. |
 | Video analytics (counting, crowd density, zones, loitering) | ✕ | Different product (VMS analytics), different consent posture. See ADR 0002 and the non-goals in `docs/system-design.md`. |
 | Real-time alerting (push/SMS/webhook) | ◐ | Webhook alerting added (`app/services/notifier.py`, `ALERT_WEBHOOK_URL`); fires on health degradation and error-rate spikes. Email/SMS still TODO. |
 | PTZ control, camera health, auto-reconnect | ○ | Camera service exposes health; no PTZ/reconnect logic. Needs a device protocol layer. |

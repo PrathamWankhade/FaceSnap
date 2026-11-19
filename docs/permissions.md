@@ -38,6 +38,10 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/attendance` | User | **Staff:** all · **Student:** own | filters: `student_uid`, `method`, `session_id`, `from`, `to`, `limit` |
 | GET | `/api/attendance/summary` | User | same isolation as above | per-day totals over N days |
 | GET | `/api/analytics/overview` | Staff | institution-wide | `403` for students |
+| GET | `/api/analytics/trends` | Staff | institution-wide | `group` = `day`, `week` or `month`; `days`; optional `department`; `403` for students |
+| GET | `/api/cameras` | Staff | camera registry | includes `streamUrl`, which may embed RTSP credentials — never exposed to students |
+| POST | `/api/cameras` | Staff | camera registry | audited |
+| DELETE | `/api/cameras/{camera_id}` | Staff | camera registry | audited; `404` if missing |
 | POST | `/api/sessions` | Staff | creates; `teacher_id` = caller | audited |
 | GET | `/api/sessions` | User | institution-wide (no PII beyond room/title) | students need this to pick a session |
 | POST | `/api/leave` | User | own student row only | `session_id` must exist |

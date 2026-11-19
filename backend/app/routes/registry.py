@@ -726,6 +726,21 @@ def analytics_overview(
 # ---------------------------------------------------------------------------
 # Analytics trends
 # ---------------------------------------------------------------------------
+def _trend_period(dt, group: str) -> str:
+    """Bucket key for an attendance timestamp.
+
+    Weeks start on Monday. Computing the offset with ``date.replace(day=...)``
+    breaks in the first days of a month (a negative day raises), so subtract a
+    timedelta instead.
+    """
+    day = dt.date()
+    if group == "week":
+        return (day - timedelta(days=day.weekday())).isoformat()
+    if group == "month":
+        return dt.strftime("%Y-%m")
+    return day.isoformat()
+
+
 @router.get("/api/analytics/trends")
 def analytics_trends(
     user: User = Depends(require_roles(*STAFF_ROLES)),
@@ -745,12 +760,7 @@ def analytics_trends(
         dt = as_utc(row.captured_at)
         if dt is None:
             continue
-        if group == "day":
-            key = dt.date().isoformat()
-        elif group == "week":
-            key = dt.date().replace(day=dt.date().day - dt.weekday()).isoformat()
-        else:
-            key = dt.strftime("%Y-%m")
+        key = _trend_period(dt, group)
         if key not in buckets:
             buckets[key] = {"period": key, "total": 0, "byMethod": {}}
         buckets[key]["total"] += 1
@@ -947,7 +957,8 @@ class CameraCreate(BaseModel):
 
 
 @router.get("/api/cameras")
-def list_cameras(user: User = Depends(get_current_user_row), db: Session = Depends(get_db)):
+def list_cameras(user: User = Depends(require_roles(*STAFF_ROLES)), db: Session = Depends(get_db)):
+    """Staff-only: a camera's stream URL can embed RTSP credentials."""
     rows = db.scalars(select(Camera).order_by(Camera.id)).all()
     return {
         "cameras": [
