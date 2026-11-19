@@ -33,6 +33,15 @@ def main() -> int:
     cmd = [sys.executable, str(Path(__file__).with_name("purge_retention.py")), "--days", days]
     if args.apply:
         cmd.append("--apply")
+    if args.students:
+        cmd.append("--students")
+        student_days = os.getenv("STUDENT_RETENTION_DAYS", "365")
+        try:
+            int(student_days)
+        except ValueError:
+            print(f"STUDENT_RETENTION_DAYS must be an integer, got {student_days!r}", file=sys.stderr)
+            return 2
+        cmd.extend(["--student-days", student_days])
     print("Running:", " ".join(cmd))
     return subprocess.call(cmd)
 

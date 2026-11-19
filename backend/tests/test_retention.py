@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Attendance, AuditLog, Base, Student, User, utcnow
-from app.services.retention import purge_attendance
+from app.services.retention import purge_attendance, purge_inactive_students
 
 
 def _session(tmp_path):
@@ -80,4 +80,29 @@ def test_zero_or_negative_window_is_rejected(tmp_path):
         purge_attendance(db, older_than_days=0)
     with pytest.raises(ValueError):
         purge_attendance(db, older_than_days=-1)
+    db.close()
+
+
+def test_inactive_students_dry_run_reports_candidates(tmp_path):
+    db = _session(tmp_path)
+    from app.db import Student
+
+    student = db.get(Student, "s1")
+    student.enrolled_at = utcnow() - timedelta(days=400)
+    db.query(Attendance).delete()
+    db.commit()
+
+    summary = purge_inactive_students(db, older_than_days=30)
+    assert summary["dry_run"] is True
+    assert summary["matched"] == 1
+    assert summary["deleted"] == 0
+    assert "u1" in summary["candidate_uids"]
+    assert db.get(Student, "s1") is not None
+    db.close()
+
+
+def test_inactive_purge_rejects_non_positive_window(tmp_path):
+    db = _session(tmp_path)
+    with pytest.raises(ValueError):
+        purge_inactive_students(db, older_than_days=0)
     db.close()
