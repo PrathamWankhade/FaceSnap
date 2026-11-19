@@ -63,6 +63,13 @@ MODEL_VERSION = os.getenv("MODEL_VERSION", "buffalo_s").strip()
 # Alerting: optional webhook fired on health degradation or error-rate spikes.
 # Empty disables alerting entirely (the safe default for local development).
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
+ALERT_EMAIL_TO = os.getenv("ALERT_EMAIL_TO", "").strip()
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+SMTP_FROM = os.getenv("SMTP_FROM", "facesnap@localhost").strip()
+SMTP_USE_TLS = _env_bool("SMTP_USE_TLS", default=True)
 ALERT_ERROR_RATE_THRESHOLD = float(os.getenv("ALERT_ERROR_RATE_THRESHOLD", "0.1"))
 ALERT_COOLDOWN_SECONDS = int(os.getenv("ALERT_COOLDOWN_SECONDS", "300"))
 # Minimum requests before an error-rate alert can fire (avoids noise on tiny samples).

@@ -73,6 +73,19 @@ facesnap_process_uptime_seconds
 Concrete wiring (provider, channel, thresholds) is a decision for
 [`hosting.md`](hosting.md) § observability once a host is chosen — no provider is claimed today.
 
+### Alert delivery (implemented)
+
+`app/services/notifier.py` delivers alerts on two channels, both optional and
+disabled by default:
+
+| Channel | Enable with | Notes |
+|---------|-------------|-------|
+| Webhook | `ALERT_WEBHOOK_URL` | JSON POST, 5 s timeout, per-event cooldown (`ALERT_COOLDOWN_SECONDS`) |
+| Email | `ALERT_EMAIL_TO` + `SMTP_HOST` (also `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS`) | plain text, sent from a background thread; a broken SMTP server never fails a request |
+
+Health-degradation and error-rate alerts fire on both configured channels.
+SMS/pager delivery is not implemented — it needs a provider contract.
+
 ## Error tracking
 
 Unhandled exceptions are logged with stack traces and `request_id`. External error tracking

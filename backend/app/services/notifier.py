@@ -22,9 +22,16 @@ from typing import Any
 
 from app.config import (
     ALERT_COOLDOWN_SECONDS,
+    ALERT_EMAIL_TO,
     ALERT_ERROR_RATE_THRESHOLD,
     ALERT_MIN_REQUESTS,
     ALERT_WEBHOOK_URL,
+    SMTP_FROM,
+    SMTP_HOST,
+    SMTP_PASSWORD,
+    SMTP_PORT,
+    SMTP_USE_TLS,
+    SMTP_USER,
 )
 
 _lock = threading.Lock()
@@ -57,13 +64,39 @@ def _cooldown_ok(event: str) -> bool:
         return True
 
 
+def _send_email(subject: str, body: str) -> bool:
+    """Send a plain-text email via SMTP. Returns True on success."""
+    if not ALERT_EMAIL_TO or not SMTP_HOST:
+        return False
+    try:
+        import smtplib
+        from email.message import EmailMessage
+
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = SMTP_FROM
+        msg["To"] = ALERT_EMAIL_TO
+        msg.set_content(body)
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            if SMTP_USE_TLS:
+                server.starttls()
+            if SMTP_USER:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
 def notify(event: str, payload: dict[str, Any] | None = None) -> bool:
     """Fire an alert for ``event`` if configured and not in cooldown.
 
     Returns True when a delivery was attempted (and succeeded). Never raises.
     """
-    url = ALERT_WEBHOOK_URL
-    if not url:
+    webhook_enabled = bool(ALERT_WEBHOOK_URL)
+    email_enabled = bool(ALERT_EMAIL_TO and SMTP_HOST)
+    if not webhook_enabled and not email_enabled:
         return False
     if not _cooldown_ok(event):
         return False
@@ -72,8 +105,11 @@ def notify(event: str, payload: dict[str, Any] | None = None) -> bool:
 
     def _worker() -> None:
         try:
-            _deliver(url, body)
-        except Exception:  # pragma: no cover - _deliver already guards
+            if webhook_enabled:
+                _deliver(ALERT_WEBHOOK_URL, body)
+            if email_enabled:
+                _send_email(f"FaceSnap alert: {event}", json.dumps(body, indent=2))
+        except Exception:  # pragma: no cover - guards above
             pass
 
     thread = threading.Thread(target=_worker, daemon=True)
