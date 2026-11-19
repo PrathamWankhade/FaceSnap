@@ -25,13 +25,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.auth import get_db
+from app.config import SCIM_TOKEN
 from app.db import User
 
 router = APIRouter()
-
-from app.config import SCIM_TOKEN as _SCIM_TOKEN
-
-SCIM_TOKEN = _SCIM_TOKEN
 
 
 def _require_scim_caller(request: Request) -> None:

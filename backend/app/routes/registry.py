@@ -36,7 +36,6 @@ from app.db import (
 from app.services import image_store
 from app.services.face_service import face_service
 from app.services.vector_service import vector_service
-from app.services.camera_worker import camera_worker_manager, enqueue_ptz
 
 router = APIRouter()
 

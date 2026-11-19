@@ -66,7 +66,11 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/pi/health` | Staff/Key | camera/engine state | |
 | GET | `/api/pi/stream` | Staff/Key | MJPEG | browsers cannot attach a bearer header to `<img>`; use a proxy or the capture/detect endpoints |
 | GET | `/api/pi/capture` | Staff/Key | still frame | |
-| GET | `/api/pi/detect` | Staff/Key | faces + `match` or `null` | unknown faces return `null`, never a guess |
+| GET | `/scim/v2/Users` | Staff/Key (SCIM token) | user provisioning | `filter`, `startIndex`, `count`; 409 on duplicate |
+| GET | `/scim/v2/Users/{id}` | Staff/Key (SCIM token) | user provisioning | `404` if missing |
+| POST | `/scim/v2/Users` | Staff/Key (SCIM token) | user provisioning | creates a DB user (role defaults to student); audited via row creation |
+| PATCH | `/scim/v2/Users/{id}` | Staff/Key (SCIM token) | user provisioning | `active:false` deprovisions (deletes the row) |
+| DELETE | `/scim/v2/Users/{id}` | Staff/Key (SCIM token) | user provisioning | `204` |
 
 ## Rules that must not regress
 
