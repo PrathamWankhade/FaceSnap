@@ -114,7 +114,7 @@ These are correctness properties, not marketing:
 | Mobile native apps | ✕ | Responsive web only; a native app adds distribution and camera-permission work without changing the protocol. |
 | Visitor management / watchlists | ✕ | Explicitly surveillance-adjacent; out of scope. |
 | Shift/overtime/payroll (T&A beyond marking) | ✕ | Different product (workforce management). |
-| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` gives counts/breakdowns; CSV export added via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
+| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` and `/api/analytics/trends` feed a staff-only `/analytics` page (overview cards, method breakdown, 30-day daily trend). CSV export via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
 | Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category. There is no case history or per-reviewer audit view yet. |
 | WCAG certification / i18n | ◐ | No certification and no translations. An automated axe gate (`frontend/e2e/a11y.spec.ts`) fails CI on critical/serious WCAG A/AA findings for public pages; signed-in pages are manual. Certification would need a human audit. |
 | Offline-first | ✕ | Fails closed on connectivity loss; offline conflict resolution is a large design surface. |
