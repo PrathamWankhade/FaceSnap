@@ -47,7 +47,7 @@ These are correctness properties, not marketing:
 |---|---|---|
 | Published FAR/FRR/ROC benchmark | ◐ | Harness + protocol exist (`scripts/evaluate_recognition.py`, `docs/evaluation.md`); **no dataset run has been published**, so no number is claimed. |
 | Demographic fairness testing | ○ | Needs a labelled, consented dataset with demographic metadata. Not possible with zero data; do not claim fairness. |
-| Mask / occlusion-robust recognition | ○ | Pretrained ArcFace degrades with occlusion; no mask-aware model. Would need a vetted model + re-embedding (ADR). |
+| Mask / occlusion-robust recognition | ◐ | Pretrained ArcFace degrades with occlusion; no mask-aware model. Re-tag infrastructure (`/api/admin/model-version/retag`) and model-info counts are ready for a swap once a vetted model arrives (ADR needed). |
 | IR / thermal / 3D face | ✕ | Requires different sensors and models; out of scope for a phone/webcam product. |
 | Age / pose invariance validation | ◐ | The enrollment pose screen exists; invariance is not measured. Same dataset prerequisite as accuracy. |
 | Ensemble / multi-model fusion | ✕ | One pretrained model (`buffalo_s`, ADR 0006). Fusion adds cost and calibration without a measured baseline. |
@@ -56,7 +56,7 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`, staff-only because stream URLs can carry RTSP credentials) with tests; per-camera RTSP workers and scheduler still planned. |
+| Multi-camera, RTSP/ONVIF, NVR federation | ◐ | Camera registry CRUD (`/api/cameras`, staff-only) plus per-camera worker health tracking, exponential-backoff reconnect scheduling, PTZ command queue (`/api/cameras/{id}/health`, `/ptz`). Actual RTSP/ONVIF device control still needs hardware + a driver. |
 | Video analytics (counting, crowd density, zones, loitering) | ✕ | Different product (VMS analytics), different consent posture. See ADR 0002 and the non-goals in `docs/system-design.md`. |
 | Real-time alerting (push/SMS/webhook) | ◐ | Webhook alerting added (`app/services/notifier.py`, `ALERT_WEBHOOK_URL`); fires on health degradation and error-rate spikes. Email/SMS still TODO. |
 | PTZ control, camera health, auto-reconnect | ○ | Camera service exposes health; no PTZ/reconnect logic. Needs a device protocol layer. |
@@ -78,11 +78,11 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Enterprise SSO beyond Google (SAML/OIDC IdP, SCIM) | ○ | Firebase identity (Google) only; roles come from SQL. SAML/SCIM needs an IdP contract and a provisioning design. |
+| Enterprise SSO beyond Google (SAML/OIDC IdP, SCIM) | ◐ | Firebase identity (Google) only; roles come from SQL. A minimal SCIM 2.0 Users resource (`/scim/v2/Users`, bearer-token auth) is now implemented for provisioning/deprovisioning. SAML/OIDC IdP integration still needs an enterprise IdP contract. |
 | HR/ERP/student-information-system sync | ◐ | `scripts/sync_students.py` (CSV idempotent upsert, dry-run) added. API-based sync still planned. |
 | Access-control integration (door unlock, turnstile) | ✕ | Attendance is recorded, not an access-control panel. Physical control is a safety-critical integration and out of scope. |
 | SIEM integration | ○ | Structured JSON logs + request ids exist; no Splunk/QRadar forwarder. A log shipper is deployment work. |
-| Webhooks / event bus | ○ | No outbound events. Retention/attendance changes would be the first events. |
+| Webhooks / event bus | ✅ | Outbound webhook event bus (`app/services/events.py`, `WEBHOOK_URLS`/`WEBHOOK_EVENTS`) with allowlist and retry; wired into enroll/attendance/delete. |
 | API gateway / versioning policy | ◐ | Conventions exist (`docs/api-conventions.md`); no gateway or deprecation mechanism. |
 
 ### 6. ML lifecycle & model management
@@ -102,7 +102,7 @@ These are correctness properties, not marketing:
 | Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; there is no automatic biometric expiry because that is an institutional policy decision (documented in `docs/consent.md`). |
 | Data export (access/portability) | ✅ | `GET /api/students/{id}/export` (owner or staff, audited) returns profile, consent, attendance and a biometric note; tested. |
 | Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version, and `ConsentGate` blocks the student scan until the current notice is accepted (`POST /api/consent/accept`, audited); migration included. |
-| Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` can blur face regions in an image, but no export or stream path calls it yet. On-device inference does not exist. |
+| Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` can blur face regions; wired into `/api/students/me/face?anonymize=true` and the `ANONYMIZE_EXPORTS` flag. On-device inference does not exist. |
 | SOC 2 / ISO 27001 / ISO 27701 alignment | ✕ | No certification or audit. Do not imply one. |
 | BIPA/CCPA-specific handling | ◐ | Consent, deletion and export are implemented; state-specific notice/retention rules need counsel. |
 | Immutable audit / chain of custody | ◐ | `audit_log` rows are append-only by convention, but a DB admin can mutate them. True immutability needs an append-only sink/hash chain. |
@@ -116,7 +116,7 @@ These are correctness properties, not marketing:
 | Shift/overtime/payroll (T&A beyond marking) | ✕ | Different product (workforce management). |
 | Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` and `/api/analytics/trends` feed a staff-only `/analytics` page (overview cards, method breakdown, 30-day daily trend). CSV export via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
 | Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category. There is no case history or per-reviewer audit view yet. |
-| WCAG certification / i18n | ◐ | No certification and no translations. An automated axe gate (`frontend/e2e/a11y.spec.ts`) fails CI on critical/serious WCAG A/AA findings for public pages; signed-in pages are manual. Certification would need a human audit. |
+| WCAG certification / i18n | ◐ | No certification. Automated axe gate on public pages (critical/serious). Lightweight i18n scaffolding with `en` and `hi` locales and a nav toggle; full translation coverage is still open. |
 | Offline-first | ✕ | Fails closed on connectivity loss; offline conflict resolution is a large design surface. |
 | Mask/temperature screening | ✕ | Pandemic-era feature, no sensor, no consent basis. |
 
@@ -124,7 +124,7 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Staging environment / deploy pipeline | ○ | Compose + Dockerfiles exist; no hosted staging. `docs/hosting.md` describes what a host must provide. |
+| Staging environment / deploy pipeline | ◐ | Compose + Dockerfiles exist; CI now builds and pushes a backend image to GHCR on push to main. Hosted staging still needs a deploy target. |
 | Tested backup/restore | ◐ | SQLite backup/restore is implemented and tested (`app/services/backup.py`, `tests/test_backup_restore.py`); Postgres uses `pg_dump` and the quarterly drill in `docs/runbooks/backup-restore.md` is still manual. |
 | Published SLOs / latency targets | ○ | Metrics exist; no SLO is claimed until a representative deployment is measured. |
 | Chaos / failure injection | ○ | Health and fail-closed paths are tested; no fault-injection suite. |
