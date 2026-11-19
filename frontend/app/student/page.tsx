@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { ShieldCheck, User as UserIcon, Camera, RefreshCw, CheckCircle2, XCircle, Loader2, LogIn, Scan, Trash2, Heart } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Camera, RefreshCw, CheckCircle2, XCircle, Loader2, LogIn, Scan, Trash2, Heart, Fingerprint, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { api, ApiError } from '@/lib/api';
@@ -11,6 +11,8 @@ import Image from 'next/image';
 import { motion } from 'motion/react';
 import { getBackendUrl } from '@/lib/utils';
 import { authHeaders, markAttendance } from '@/lib/attendance';
+import ConsentGate from '@/components/ConsentGate';
+import { challengeCopy, type LivenessChallengeIssue, type LivenessChallengeResult } from '@/lib/liveness';
 
 const LIVENESS_FRAMES = 50;
 const FRAME_INTERVAL_MS = 100;
@@ -28,6 +30,12 @@ export default function StudentPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [useChallenge, setUseChallenge] = useState(false);
+  const [challenge, setChallenge] = useState<LivenessChallengeIssue | null>(null);
+  const [challengeState, setChallengeState] = useState<'idle' | 'awaiting' | 'verifying' | 'passed' | 'failed'>('idle');
+  const [challengeReason, setChallengeReason] = useState<string | null>(null);
+  const [livenessDetails, setLivenessDetails] = useState<VerifyResponse['liveness'] | null>(null);
+  const [consentStale, setConsentStale] = useState(false);
 
   const webcamRef = useRef<Webcam>(null);
 
@@ -124,24 +132,46 @@ export default function StudentPage() {
       toast.error('Your enrollment photo is unavailable. Please re-register your face.');
       return;
     }
-
-    setIsCapturingFrames(true);
-    setCaptureProgress(0);
-    setVerificationResult(null);
-    setLivenessScore(null);
-    setAttendanceState('idle');
-
-    const { frames, intervalMs } = await captureFrames();
-    setIsCapturingFrames(false);
-    setIsVerifying(true);
-
-    if (frames.length < 5) {
-      toast.error("Failed to capture enough frames. Please try again.");
-      setIsVerifying(false);
+    if (consentStale) {
+      toast.error('Accept the updated biometric consent notice before verifying.');
       return;
     }
 
+    setVerificationResult(null);
+    setLivenessScore(null);
+    setLivenessDetails(null);
+    setAttendanceState('idle');
+    setChallenge(null);
+    setChallengeReason(null);
+    setChallengeState('idle');
+    setIsVerifying(true);
+
     try {
+      // The challenge is issued before capture so the student can read the
+      // instruction and perform it while the frames are recorded.
+      let issued: LivenessChallengeIssue | null = null;
+      if (useChallenge) {
+        try {
+          issued = await api.get<LivenessChallengeIssue>('/api/liveness/challenge');
+          setChallenge(issued);
+          setChallengeState('awaiting');
+        } catch (error) {
+          setChallengeState('failed');
+          toast.error(error instanceof ApiError ? error.message : 'Could not start the liveness challenge.');
+          return;
+        }
+      }
+
+      setIsCapturingFrames(true);
+      setCaptureProgress(0);
+      const { frames, intervalMs } = await captureFrames();
+      setIsCapturingFrames(false);
+
+      if (frames.length < 5) {
+        toast.error("Failed to capture enough frames. Please try again.");
+        return;
+      }
+
       const headers = await authHeaders();
       const response = await fetch(getBackendUrl('/api/verify_liveness'), {
         method: 'POST',
@@ -160,37 +190,69 @@ export default function StudentPage() {
 
       const result: VerifyResponse = await response.json();
       setLivenessScore(result.liveness?.score ?? null);
+      setLivenessDetails(result.liveness ?? null);
 
-      if (result.match) {
-        setVerificationResult('success');
-        const livenessNote = result.liveness?.live ? ' (liveness confirmed)' : '';
-        toast.success(`Identity verified${livenessNote} — recording attendance…`);
-
-        setAttendanceState('saving');
-        try {
-          const attendance = await markAttendance({
-            method: 'individual_live',
-            liveness_score: result.liveness?.score ?? null,
-          });
-          setAttendanceState('saved');
-          toast.success(attendance.duplicate ? 'Attendance already recorded for today.' : 'Attendance recorded.');
-        } catch (apiError) {
-          console.error('Attendance API error:', apiError);
-          setAttendanceState('failed');
-          toast.error(apiError instanceof Error ? apiError.message : 'Could not record attendance.');
-        }
-      } else {
+      if (!result.match) {
         setVerificationResult('failed');
         toast.error(result.reason || 'Verification Failed.');
+        return;
+      }
+
+      // The server-side match passed. When the student opted into an active
+      // challenge, the same frames must also clear it before attendance is
+      // written — a failed challenge records nothing.
+      if (issued) {
+        setChallengeState('verifying');
+        const challengeResponse = await fetch(getBackendUrl('/api/liveness/verify_challenge'), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            token: issued.token,
+            frames_base64: frames,
+            frame_interval_ms: Math.round(intervalMs * 10) / 10,
+          }),
+        });
+        if (!challengeResponse.ok) {
+          throw new Error('Liveness challenge request failed.');
+        }
+        const challengeResult: LivenessChallengeResult = await challengeResponse.json();
+        if (!challengeResult.passed) {
+          const reason = challengeResult.reason || 'The liveness challenge did not pass. Try again.';
+          setChallengeState('failed');
+          setChallengeReason(reason);
+          setVerificationResult('failed');
+          toast.error(reason);
+          return;
+        }
+        setChallengeState('passed');
+      }
+
+      setVerificationResult('success');
+      const livenessNote = result.liveness?.live ? ' (liveness confirmed)' : '';
+      toast.success(`Identity verified${livenessNote} — recording attendance…`);
+
+      setAttendanceState('saving');
+      try {
+        const attendance = await markAttendance({
+          method: 'individual_live',
+          liveness_score: result.liveness?.score ?? null,
+        });
+        setAttendanceState('saved');
+        toast.success(attendance.duplicate ? 'Attendance already recorded for today.' : 'Attendance recorded.');
+      } catch (apiError) {
+        console.error('Attendance API error:', apiError);
+        setAttendanceState('failed');
+        toast.error(apiError instanceof Error ? apiError.message : 'Could not record attendance.');
       }
     } catch (error) {
       console.error("Verification error:", error);
       toast.error("An error occurred during verification. Is the backend running?");
       setVerificationResult('failed');
     } finally {
+      setIsCapturingFrames(false);
       setIsVerifying(false);
     }
-  }, [studentData, captureFrames]);
+  }, [studentData, captureFrames, useChallenge, consentStale]);
 
   if (loading) {
     return (
@@ -271,6 +333,13 @@ export default function StudentPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
+      <ConsentGate
+        studentConsentVersion={studentData.consentVersion ?? null}
+        onStatusChange={setConsentStale}
+        onAccepted={(version) =>
+          setStudentData((previous) => (previous ? { ...previous, consentVersion: version } : previous))
+        }
+      />
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -374,6 +443,42 @@ export default function StudentPage() {
           ) : (
             <div className="p-8 md:p-12">
               <div className="max-w-2xl mx-auto">
+                <label className="flex items-start gap-3 mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useChallenge}
+                    onChange={(event) => setUseChallenge(event.target.checked)}
+                    disabled={isBusy}
+                    className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-200">
+                    <span className="font-bold flex items-center gap-2">
+                      <Fingerprint className="w-4 h-4" /> Active liveness challenge
+                    </span>
+                    <span className="block mt-1 text-slate-600 dark:text-slate-300">
+                      Adds a random blink or head-turn step on top of pulse detection. If the challenge
+                      does not pass, no attendance is recorded.
+                    </span>
+                  </span>
+                </label>
+
+                {challenge && challengeState === 'awaiting' && (
+                  <div
+                    role="status"
+                    className="mb-6 p-5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/50"
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-300 mb-1">
+                      Your challenge
+                    </p>
+                    <p className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
+                      {challengeCopy(challenge.challenge).title}
+                    </p>
+                    <p className="text-sm text-indigo-800 dark:text-indigo-200 mt-1">
+                      {challengeCopy(challenge.challenge).instruction} Complete it while the frames are captured.
+                    </p>
+                  </div>
+                )}
+
                 <div className="relative bg-slate-900 aspect-video mb-8 rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-100 dark:border-slate-800">
                   <Webcam
                     audio={false}
@@ -386,7 +491,18 @@ export default function StudentPage() {
                   {isCapturingFrames && (
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10">
                       <Loader2 className="w-12 h-12 text-white animate-spin mb-4" />
-                      <p className="text-white font-bold text-lg tracking-wide mb-2">Analyzing Liveness...</p>
+                      {challenge && challengeState === 'awaiting' ? (
+                        <>
+                          <p className="text-white font-bold text-lg tracking-wide mb-1">
+                            {challengeCopy(challenge.challenge).title}
+                          </p>
+                          <p className="text-slate-200 text-sm mb-3 text-center px-6">
+                            {challengeCopy(challenge.challenge).instruction}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-white font-bold text-lg tracking-wide mb-2">Analyzing Liveness...</p>
+                      )}
                       <div className="w-64 bg-slate-700/50 rounded-full h-3 overflow-hidden border border-slate-600/50">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-200"
@@ -419,6 +535,22 @@ export default function StudentPage() {
                               <span className="text-emerald-50 text-sm font-semibold">Face match</span>
                               <span className="text-white text-sm font-bold">Confirmed{livenessScore !== null ? ` · liveness ${(livenessScore * 100).toFixed(0)}%` : ''}</span>
                             </div>
+                            {useChallenge && (
+                              <div className="flex items-center justify-between bg-white/15 rounded-xl px-4 py-2.5">
+                                <span className="text-emerald-50 text-sm font-semibold">Liveness challenge</span>
+                                <span className="text-white text-sm font-bold">
+                                  {challengeState === 'passed' ? 'Passed' : challengeState === 'failed' ? 'Failed' : 'Not checked'}
+                                </span>
+                              </div>
+                            )}
+                            {livenessDetails && (
+                              <div className="flex items-center justify-between bg-white/15 rounded-xl px-4 py-2.5">
+                                <span className="text-emerald-50 text-sm font-semibold">Signals (pulse / blink / motion)</span>
+                                <span className="text-white text-sm font-bold">
+                                  {(livenessDetails.rppg_score * 100).toFixed(0)}% · {(livenessDetails.blink_score * 100).toFixed(0)}% · {(livenessDetails.motion_score * 100).toFixed(0)}%
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center justify-between bg-white/15 rounded-xl px-4 py-2.5">
                               <span className="text-emerald-50 text-sm font-semibold">Attendance</span>
                               {attendanceState === 'saved' ? (
@@ -440,7 +572,23 @@ export default function StudentPage() {
                         <>
                           <XCircle className="w-20 h-20 text-white mb-4" />
                           <h3 className="text-3xl font-bold text-white mb-2">Not Verified</h3>
-                          <p className="text-rose-100 font-bold">Face does not match the registered profile. No attendance was recorded.</p>
+                          <p className="text-rose-100 font-bold text-center">
+                            {challengeState === 'failed'
+                              ? 'Liveness challenge failed. No attendance was recorded.'
+                              : livenessDetails?.injection_suspected
+                                ? 'Replay-like static frames detected. No attendance was recorded.'
+                                : 'Face does not match the registered profile. No attendance was recorded.'}
+                          </p>
+                          {challengeReason && (
+                            <p className="mt-3 flex items-center gap-2 text-rose-100 text-sm text-center">
+                              <AlertTriangle className="w-4 h-4" /> {challengeReason}
+                            </p>
+                          )}
+                          {livenessDetails?.injection_suspected && livenessDetails.injection_reason && (
+                            <p className="mt-3 flex items-center gap-2 text-rose-100 text-sm text-center">
+                              <AlertTriangle className="w-4 h-4" /> {livenessDetails.injection_reason}
+                            </p>
+                          )}
                           {livenessScore !== null && (
                             <div className="mt-3 flex items-center gap-2 text-rose-100 text-sm">
                               <Heart className="w-4 h-4" />
@@ -463,9 +611,10 @@ export default function StudentPage() {
                   </button>
                   <button
                     onClick={captureAndVerify}
-                    disabled={isBusy}
+                    disabled={isBusy || consentStale}
+                    title={consentStale ? 'Accept the updated consent notice first' : undefined}
                     className={`px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 shadow-md transition-all hover:-translate-y-0.5 ${
-                      isBusy
+                      isBusy || consentStale
                         ? 'bg-indigo-400 text-white cursor-not-allowed'
                         : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-indigo-500/20 hover:shadow-indigo-500/30'
                     }`}

@@ -35,9 +35,9 @@ These are correctness properties, not marketing:
 | Gap | Status | Reality / next step |
 |---|---|---|
 | Certified PAD (ISO/IEC 30107-3) | ✕ | Explicit non-goal: certification needs a certified lab, a spoof corpus and money. Liveness stays best-effort and is never described as certified. |
-| Deepfake / virtual-camera / injection-attack detection | ○ | No defence beyond temporal variance and rPPG. A real defence needs a device-attestation or injection-detection layer; separate project. |
-| Active liveness (turn head / blink on command) | ◐ | Challenge-response protocol added (`issue_challenge`/`verify_challenge`, `/api/liveness/challenge`); passive remains default. Needs production tuning. |
-| Enrollment quality assessment (blur, pose, size, lighting) | ✅ | `face_service.assess_enrollment()` rejects blurry, tiny, dark, low-confidence, turned/tilted photos with machine-readable reasons; tested in `tests/test_enrollment_quality.py`. |
+| Deepfake / virtual-camera / injection-attack detection | ◐ | Best-effort static/replay-frame ratio check (`detect_injection`) rejects a burst of identical frames during liveness. It is not device attestation and not a measured deepfake defence. |
+| Active liveness (turn head / blink on command) | ◐ | Challenge-response protocol (`issue_challenge`/`verify_challenge`, `/api/liveness/challenge`, `/api/liveness/verify_challenge`) with single-use tokens, a 30 s TTL and a per-process cap. Wired into the student scan as an opt-in toggle; a failed challenge records no attendance. Passive remains the default and the thresholds are untuned against a spoof corpus. |
+| Enrollment quality assessment (blur, pose, size, lighting) | ✅ | `face_service.assess_enrollment()` rejects blurry, tiny, dark, low-confidence, turned/tilted photos with machine-readable reasons; the register page turns the structured 422 into an actionable checklist plus the measured metrics. Tested in `tests/test_enrollment_quality.py`. |
 | De-duplication / one face per identity | ✅ | Cosine distance ≤ `DUPLICATE_FACE_DISTANCE` (0.30) against the vector index blocks a second identity; audited. Requires Qdrant — the response exposes `duplicate_checked` rather than pretending. |
 | Encryption at rest for photos/vectors | ◐ | The app does not encrypt files itself; reliance is on disk/volume encryption (KMS/HSM) at the host. Documented as a deployment responsibility, not a built-in claim. |
 
@@ -101,8 +101,8 @@ These are correctness properties, not marketing:
 | Attendance retention-expiry job | ✅ | `scripts/purge_retention.py`, dry-run by default, positive-window guard, audited; tested in `tests/test_retention.py`. |
 | Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; there is no automatic biometric expiry because that is an institutional policy decision (documented in `docs/consent.md`). |
 | Data export (access/portability) | ✅ | `GET /api/students/{id}/export` (owner or staff, audited) returns profile, consent, attendance and a biometric note; tested. |
-| Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version; migration included. |
-| Privacy-preserving options (on-device, blurring non-enrolled faces) | ○ | No face anonymisation in uploads/streams. Would need a second model and a review. |
+| Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version, and `ConsentGate` blocks the student scan until the current notice is accepted (`POST /api/consent/accept`, audited); migration included. |
+| Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` can blur face regions in an image, but no export or stream path calls it yet. On-device inference does not exist. |
 | SOC 2 / ISO 27001 / ISO 27701 alignment | ✕ | No certification or audit. Do not imply one. |
 | BIPA/CCPA-specific handling | ◐ | Consent, deletion and export are implemented; state-specific notice/retention rules need counsel. |
 | Immutable audit / chain of custody | ◐ | `audit_log` rows are append-only by convention, but a DB admin can mutate them. True immutability needs an append-only sink/hash chain. |

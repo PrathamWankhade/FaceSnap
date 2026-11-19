@@ -90,10 +90,15 @@ Specs live in `frontend/e2e/`. What is covered today and **what deliberately is 
 - Covered: the app shell hydrates past the auth loading state and shows the public navigation;
   `/register` requires sign-in; `/student`, `/attendance`, `/classroom` and `/cctv` all render an
   auth-required state when signed out (no crash, no silent success).
-- **Not covered:** Google sign-in, role-aware navigation after login, attendance history rendering,
-  and a real webcam liveness scan. Sign-in needs Firebase credentials; synthetic video is correctly
-  rejected by the liveness service, so a faked camera would test the fake. These are manual checks
-  below — an honest limitation, not something papered over with an always-pass mock.
+- Covered without a session: `e2e/feature-logic.spec.ts` imports the pure helpers behind the
+  signed-in UI — enrollment rejection → actionable checklist + metric formatting, consent
+  staleness (including "unknown current notice never blocks"), and challenge copy (known and
+  fallback names).
+- **Not covered:** Google sign-in, the consent gate modal, the active-liveness toggle, role-aware
+  navigation after login, attendance history rendering, and a real webcam liveness scan. Sign-in
+  needs Firebase credentials; synthetic video is correctly rejected by the liveness service, so a
+  faked camera would test the fake. These are manual checks below — an honest limitation, not
+  something papered over with an always-pass mock.
 - CI runs headless Chromium only; other engines are a local concern.
 
 ## Load
@@ -112,14 +117,20 @@ produce **one** row rather than two. It is not a capacity benchmark and no SLA i
 Run before declaring a release-ready change:
 
 1. Google sign-in works; role is correct in `/api/me`.
-2. `/register` enrolls a real face (exactly one face enforced; consent notice visible).
+2. `/register` enrolls a real face (exactly one face enforced; consent notice visible). Deliberately
+   enrol a blurry/dark frame first and confirm the checklist lists the right fixes and no row is
+   created.
 3. `/student`: live scan passes for the enrolled person, **fails** for a different person,
    and **fails** when the camera is covered with a photo.
-4. Attendance shows *verified* and *recorded* as separate states; repeat scan says
+4. Active liveness: enable the challenge toggle, perform it, and confirm a deliberately wrong
+   action (e.g. no head turn) fails and records **no** attendance.
+5. Consent gate: set a student row's `consent_version` to an older value, reload `/student`, and
+   confirm the scan is blocked until the modal is accepted.
+6. Attendance shows *verified* and *recorded* as separate states; repeat scan says
    "already recorded" and does not create a second row.
-5. `/classroom` and `/cctv` refuse to start for a student account (403 surfaced as an error,
+7. `/classroom` and `/cctv` refuse to start for a student account (403 surfaced as an error,
    not a broken page).
-6. Deleting the profile removes photo + embedding + history and the student can re-enroll.
+8. Deleting the profile removes photo + embedding + history and the student can re-enroll.
 
 ## CI
 

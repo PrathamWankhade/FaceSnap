@@ -9,6 +9,10 @@ export interface StudentData {
   semester: string;
   faceImageBase64?: string;
   registeredAt: string;
+  /** Consent notice version recorded at enrollment (null for pre-versioning rows). */
+  consentVersion?: string | null;
+  /** Recognition model that produced the stored embedding. */
+  modelVersion?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -63,6 +67,9 @@ export interface VerifyResponse {
     rppg_score: number;
     blink_score: number;
     motion_score: number;
+    /** Best-effort replay/static-frame signal (not certified PAD). */
+    injection_suspected?: boolean;
+    injection_reason?: string | null;
   };
 }
 

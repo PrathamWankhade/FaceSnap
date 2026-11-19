@@ -38,7 +38,9 @@ parties.
 - The student can delete their profile at any time (`DELETE /api/students/{id}`): this removes the
   photo, embedding and attendance history. Re-enrollment is possible afterwards.
 - The consent version and timestamp are stored with the student row; after a notice update, rows
-  with an older version can be queried for re-consent.
+  with an older version can be queried for re-consent. The student scan shows a blocking
+  `ConsentGate` modal for those rows and unlocks attendance only after `POST /api/consent/accept`
+  records the current version (audited).
 
 ## What FaceSnap does not do
 

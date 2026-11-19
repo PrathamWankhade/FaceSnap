@@ -1,4 +1,6 @@
 """Regression tests for the anti-spoofing (rPPG) guard."""
+import time
+
 import cv2
 import numpy as np
 import pytest
@@ -101,3 +103,46 @@ def test_liveness_request_validates_frame_interval():
         LivenessVerifyRequest(**base, frame_interval_ms=5)
     with pytest.raises(ValidationError):
         LivenessVerifyRequest(**base, frame_interval_ms=2000)
+
+
+def _flat_frames(count: int = 12) -> list[bytes]:
+    frame = _encode(np.full((64, 64, 3), 110, dtype=np.uint8))
+    return [frame] * count
+
+
+def test_challenge_tokens_are_single_use():
+    service = LivenessService()
+    issued = service.issue_challenge()
+
+    first = service.verify_challenge(_flat_frames(), issued["token"])
+    # The token was accepted, so the challenge name comes back even though the
+    # flat frames fail the underlying liveness bar.
+    assert first["challenge"] == issued["challenge"]
+    assert first["passed"] is False
+
+    second = service.verify_challenge(_flat_frames(), issued["token"])
+    assert second["passed"] is False
+    assert "unknown or expired" in second["reason"]
+
+
+def test_expired_challenge_is_rejected(monkeypatch):
+    service = LivenessService()
+    issued = service.issue_challenge()
+    started = time.monotonic()
+    monkeypatch.setattr(
+        "app.services.liveness_service.time.monotonic",
+        lambda: started + service.CHALLENGE_TTL_SECONDS + 1,
+    )
+
+    result = service.verify_challenge(_flat_frames(), issued["token"])
+
+    assert result["passed"] is False
+    assert result["reason"] == "challenge expired"
+
+
+def test_pending_challenges_are_capped():
+    service = LivenessService()
+    for _ in range(service.MAX_PENDING_CHALLENGES + 25):
+        service.issue_challenge()
+
+    assert len(service._challenges) <= service.MAX_PENDING_CHALLENGES

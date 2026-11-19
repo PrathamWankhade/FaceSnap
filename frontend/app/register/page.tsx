@@ -2,12 +2,25 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, CheckCircle2, RefreshCw, AlertCircle, LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle2, RefreshCw, AlertCircle, AlertTriangle, LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
+import {
+  describeQualityIssues,
+  parseEnrollmentQualityDetail,
+  qualityMetricRows,
+  type QualityIssue,
+  type QualityMetricRow,
+} from '@/lib/enrollment';
+
+interface QualityReport {
+  message: string;
+  issues: QualityIssue[];
+  metrics: QualityMetricRow[];
+}
 
 export default function RegisterPage() {
   const { user, loading, signIn } = useAuth();
@@ -23,6 +36,7 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [consent, setConsent] = useState<{ version: string; summary: string } | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
 
   const webcamRef = useRef<Webcam>(null);
 
@@ -49,11 +63,13 @@ export default function RegisterPage() {
   const capture = useCallback(() => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
+      setQualityReport(null);
       setImageSrc(imageSrc);
     }
   }, [webcamRef]);
 
   const retake = () => {
+    setQualityReport(null);
     setImageSrc(null);
   };
 
@@ -81,6 +97,7 @@ export default function RegisterPage() {
     }
 
     setIsSubmitting(true);
+    setQualityReport(null);
     try {
       // Client-side image guard (server re-validates): reject huge payloads early.
       if (imageSrc.length > 12_000_000) {
@@ -113,7 +130,17 @@ export default function RegisterPage() {
     } catch (error) {
       console.error('Registration error:', error);
       if (error instanceof ApiError) {
-        toast.error(error.message);
+        const detail = error.status === 422 ? parseEnrollmentQualityDetail(error.detail) : null;
+        if (detail) {
+          setQualityReport({
+            message: detail.message,
+            issues: describeQualityIssues(detail.reasons),
+            metrics: qualityMetricRows(detail.metrics),
+          });
+          toast.error('Photo rejected — see the checklist below, then retake.');
+        } else {
+          toast.error(error.message);
+        }
       } else {
         toast.error('Failed to register. Is the backend running?');
       }
@@ -372,6 +399,48 @@ export default function RegisterPage() {
                   <img src={imageSrc} alt="Captured" className="w-full h-full object-cover" />
                 )}
               </div>
+
+              {qualityReport && (
+                <div
+                  role="alert"
+                  className="max-w-2xl mx-auto mb-8 rounded-3xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 p-6"
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-300 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-bold text-rose-900 dark:text-rose-100">{qualityReport.message}</h3>
+                      <p className="text-sm text-rose-800 dark:text-rose-200 mt-1">
+                        The photo was not stored. Fix the items below and retake.
+                      </p>
+                      <ul className="mt-4 space-y-3">
+                        {qualityReport.issues.map((issue) => (
+                          <li key={issue.code}>
+                            <p className="text-sm font-bold text-rose-900 dark:text-rose-100">{issue.title}</p>
+                            <p className="text-sm text-rose-800 dark:text-rose-200">{issue.fix}</p>
+                          </li>
+                        ))}
+                      </ul>
+                      {qualityReport.metrics.length > 0 && (
+                        <dl className="mt-5 flex flex-wrap gap-2">
+                          {qualityReport.metrics.map((metric) => (
+                            <div
+                              key={metric.key}
+                              className="rounded-full bg-white/70 dark:bg-slate-900/60 border border-rose-200 dark:border-rose-900/60 px-3 py-1"
+                            >
+                              <dt className="inline text-xs font-semibold text-rose-700 dark:text-rose-200">
+                                {metric.label}:{' '}
+                              </dt>
+                              <dd className="inline text-xs font-bold text-rose-900 dark:text-rose-100">
+                                {metric.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {!imageSrc ? (

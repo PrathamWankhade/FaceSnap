@@ -1,3 +1,4 @@
+import time
 import uuid
 
 import cv2
@@ -25,7 +26,7 @@ class LivenessService:
         self.frame_count = LIVENESS_FRAME_COUNT
         self.fps_target = LIVENESS_FPS_TARGET
         self._face_cascade = None
-        self._challenges: dict[str, str] = {}
+        self._challenges: dict[str, tuple[str, float]] = {}
 
     def detect_liveness(self, frames_bytes, fps=None):
         """Score a short frame burst for signs of a live face.
@@ -72,18 +73,35 @@ class LivenessService:
         }
 
     CHALLENGES = ("blink", "turn_left", "turn_right")
+    CHALLENGE_TTL_SECONDS = 30.0
+    # Pending tokens are per-process state; cap them so an unauthenticated
+    # burst of GETs cannot grow the dict without bound.
+    MAX_PENDING_CHALLENGES = 500
+
+    def _prune_challenges(self) -> None:
+        now = time.monotonic()
+        for token, (_, issued_at) in list(self._challenges.items()):
+            if now - issued_at > self.CHALLENGE_TTL_SECONDS:
+                self._challenges.pop(token, None)
 
     def issue_challenge(self) -> dict:
         """Issue a random challenge the client must perform on camera."""
+        self._prune_challenges()
+        while len(self._challenges) >= self.MAX_PENDING_CHALLENGES:
+            # Insertion order is oldest-first; drop the oldest pending token.
+            self._challenges.pop(next(iter(self._challenges)))
         challenge = __import__("random").choice(self.CHALLENGES)
         token = str(uuid.uuid4())
-        self._challenges[token] = challenge
-        return {"challenge": challenge, "token": token, "expires_in": 30}
+        self._challenges[token] = (challenge, time.monotonic())
+        return {"challenge": challenge, "token": token, "expires_in": int(self.CHALLENGE_TTL_SECONDS)}
 
     def verify_challenge(self, frames_bytes, token: str, fps=None) -> dict:
-        challenge = self._challenges.pop(token, None)
-        if challenge is None:
+        issued = self._challenges.pop(token, None)
+        if issued is None:
             return {"live": False, "passed": False, "reason": "unknown or expired challenge token"}
+        challenge, issued_at = issued
+        if time.monotonic() - issued_at > self.CHALLENGE_TTL_SECONDS:
+            return {"live": False, "passed": False, "challenge": challenge, "reason": "challenge expired"}
         base = self.detect_liveness(frames_bytes, fps=fps)
         if challenge == "blink":
             passed = base.get("blink_score", 0.0) >= 0.2 or base.get("rppg_score", 0.0) >= LIVENESS_RPPG_PASS

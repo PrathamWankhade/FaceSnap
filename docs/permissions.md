@@ -45,6 +45,8 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/audit/verify` | Admin | audit chain integrity | verifies hash chain, reports breaks |
 | POST | `/api/verify` | Staff | arbitrary two images | deliberately **not** student-callable: it would be a general face-comparison oracle |
 | POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited |
+| GET | `/api/liveness/challenge` | User | self | one-shot challenge (`blink`/`turn_left`/`turn_right`) + token, TTL 30 s; pending tokens capped per process |
+| POST | `/api/liveness/verify_challenge` | User | self | token + frames; single-use, TTL-enforced; rate-limited; liveness only, never a match decision |
 | POST | `/api/sync` | Staff | bulk import | legacy bulk path; prefer enroll/backfill |
 | POST | `/api/detect_webcam` | Staff | frame → detections + identities | rate-limited |
 | GET | `/api/detections/review` | Staff | unmatched detection queue | filters: `status`, `limit` |
@@ -73,6 +75,9 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 7. **Enrollment fails closed on consent.** A missing or stale `consent_version` is a `422`; the
    database records the accepted version and timestamp. Never accept consent from a client flag
    without storing evidence of it.
+8. **An active-liveness challenge is liveness only.** `/api/liveness/verify_challenge` never
+   returns a face match and never writes attendance; the client must still call
+   `/api/verify_liveness` (server-side match) and `/api/attendance` (server-side write).
 
 ## Known, deliberate trade-offs
 
