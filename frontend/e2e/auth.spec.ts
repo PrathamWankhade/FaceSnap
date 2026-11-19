@@ -39,7 +39,7 @@ test.describe('FaceSnap frontend', () => {
   });
 
   test('student, attendance, classroom and cctv require sign-in when unauthenticated', async ({ page }) => {
-    for (const route of ['/student', '/attendance', '/classroom', '/cctv']) {
+    for (const route of ['/student', '/attendance', '/classroom', '/cctv', '/analytics']) {
       await page.goto(route);
       await waitForAppReady(page);
       await expect(

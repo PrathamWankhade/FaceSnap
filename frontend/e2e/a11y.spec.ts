@@ -10,7 +10,7 @@ import AxeBuilder from '@axe-core/playwright';
  * because they cannot be reached without Firebase credentials.
  */
 
-const PUBLIC_PAGES = ['/', '/about', '/contact', '/register'];
+const PUBLIC_PAGES = ['/', '/about', '/contact', '/register', '/analytics'];
 
 /**
  * Framer-motion fades content in from opacity 0. axe-core blends a partially

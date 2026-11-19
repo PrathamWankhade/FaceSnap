@@ -41,7 +41,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               Skip to main content
             </a>
-            <Navigation />
             <MotionConfig reducedMotion="user">
               <Navigation />
               <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">

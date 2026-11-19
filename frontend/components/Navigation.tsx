@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import ThemeToggle from './ThemeToggle';
-import { LogIn, LogOut, User as UserIcon, Home, UserPlus, GraduationCap, Camera, Info, Phone, Users, Menu, X, ScanFace, Loader2, ClipboardList } from 'lucide-react';
+import { LogIn, LogOut, User as UserIcon, Home, UserPlus, GraduationCap, Camera, Info, Phone, Users, Menu, X, ScanFace, Loader2, ClipboardList, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Navigation() {
@@ -32,6 +32,7 @@ export default function Navigation() {
     ...studentNavItems,
     { name: 'Batch', path: '/classroom', icon: Users },
     { name: 'CCTV', path: '/cctv', icon: Camera },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
   ];
 
   const navItems = !user ? publicNavItems : role === 'admin' && !roleLoading ? staffNavItems : studentNavItems;
