@@ -89,7 +89,7 @@ These are correctness properties, not marketing:
 
 | Gap | Status | Reality / next step |
 |---|---|---|
-| Model versioning / rollback | ◐ | `model_version` column on students + payload; recorded at enroll/backfill; exposed in export. Rollback plan still an ADR away. |
+| Model versioning / rollback | ◐ | `model_version` column on students + payload; recorded at enroll/backfill; exposed in export and `/api/admin/model-info` (counts on old version). Rollback plan still an ADR away. |
 | Drift detection | ◐ | Match-distance histogram added (`facesnap_match_distance_bucket` on /api/metrics). Alerting on drift threshold still TODO. |
 | Retraining pipeline / human-in-the-loop labelling | ✕ | No training happens here (ADR 0006); a future model must arrive with a corpus, licence and evaluation report. |
 | Model registry / shadow mode | ○ | Out of scope until there is a second model to compare. |

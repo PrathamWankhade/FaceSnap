@@ -1039,6 +1039,36 @@ def model_info(user: User = Depends(require_roles("admin")), db: Session = Depen
     }
 
 
+@router.get("/api/admin/consent-report")
+def consent_report(user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    """How many students are on each consent version, and who is stale."""
+    from app.config import CONSENT_VERSION
+
+    students = db.scalars(select(Student)).all()
+    by_version: dict[str, int] = {}
+    for student in students:
+        version = student.consent_version or "(none)"
+        by_version[version] = by_version.get(version, 0) + 1
+
+    stale = [
+        {
+            "uid": student.user_id,
+            "name": student.name,
+            "consentVersion": student.consent_version,
+            "consentAt": _iso(student.consent_at),
+        }
+        for student in students
+        if student.consent_version != CONSENT_VERSION
+    ]
+    return {
+        "currentVersion": CONSENT_VERSION,
+        "total": len(students),
+        "byVersion": by_version,
+        "staleCount": len(stale),
+        "stale": stale,
+    }
+
+
 @router.post("/api/admin/backfill-embeddings")
 def backfill_embeddings(
     user: User = Depends(require_roles("admin")),

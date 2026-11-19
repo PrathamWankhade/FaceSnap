@@ -47,6 +47,8 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | POST | `/api/leave` | User | own student row only | `session_id` must exist |
 | GET | `/api/leave` | User | **Staff:** all · **Student:** own | |
 | GET | `/api/audit/verify` | Admin | audit chain integrity | verifies hash chain, reports breaks |
+| GET | `/api/admin/model-info` | Admin | model version + re-enrollment counts | |
+| GET | `/api/admin/consent-report` | Admin | consent version distribution + stale list | for re-consent campaigns |
 | POST | `/api/verify` | Staff | arbitrary two images | deliberately **not** student-callable: it would be a general face-comparison oracle |
 | POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited |
 | GET | `/api/liveness/challenge` | User | self | one-shot challenge (`blink`/`turn_left`/`turn_right`) + token, TTL 30 s; pending tokens capped per process |

@@ -110,6 +110,20 @@ def test_liveness_verify_challenge_is_user_level(client):
     _clear()
 
 
+def test_consent_report_is_admin_only(client):
+    _as_student(client)
+    assert client.get("/api/admin/consent-report").status_code == 403
+    _clear()
+
+    _as_admin(client)
+    body = client.get("/api/admin/consent-report").json()
+    assert body["currentVersion"]
+    assert "byVersion" in body
+    assert "stale" in body
+    assert body["staleCount"] == len(body["stale"])
+    _clear()
+
+
 def test_consent_accept_requires_a_student_row(client):
     _as_student(client, uid="no-profile-student")
     response = client.post("/api/consent/accept")
