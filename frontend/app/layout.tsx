@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MotionConfig } from 'motion/react';
 import ChatbotWrapper from '@/components/ChatbotWrapper';
 import { Toaster } from 'sonner';
 
@@ -41,12 +42,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Skip to main content
             </a>
             <Navigation />
-            <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
-              {children}
-            </main>
-            <Footer />
-            <ChatbotWrapper />
-            <Toaster position="top-center" richColors theme="system" />
+            <MotionConfig reducedMotion="user">
+              <Navigation />
+              <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
+                {children}
+              </main>
+              <Footer />
+              <ChatbotWrapper />
+              <Toaster position="top-center" richColors theme="system" />
+            </MotionConfig>
           </AuthProvider>
           </ThemeProvider>
         </ErrorBoundary>
