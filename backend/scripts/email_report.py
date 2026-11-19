@@ -110,7 +110,9 @@ def main(argv: list[str] | None = None) -> int:
 
     with SessionLocal() as db:
         rows = build_rows(db, args.days, args.limit)
-    csv_text = attendance_csv(rows)
+        # Render while the session is still open: attendance_csv lazy-loads
+        # record.student, which raises DetachedInstanceError afterwards.
+        csv_text = attendance_csv(rows)
 
     if not args.apply:
         print(csv_text, end="")

@@ -79,6 +79,44 @@ def test_email_report_dry_run_prints_csv(capsys):
     assert "Dry run" in captured.err
 
 
+def test_email_report_dry_run_renders_existing_rows(capsys):
+    # Regression: the CSV must be rendered inside the session block or the
+    # lazy-loaded student relationship raises DetachedInstanceError.
+    from app.db import SessionLocal
+
+    with SessionLocal() as db:
+        db.add(User(id="u-rep", email="rep@example.edu", display_name="R", role="student"))
+        db.flush()
+        db.add(
+            Student(
+                id="s-rep",
+                user_id="u-rep",
+                name="Grace Hopper",
+                roll_number="R9",
+                department="CS",
+                year="4",
+                semester="8",
+            )
+        )
+        db.flush()
+        db.add(
+            Attendance(
+                student_id="s-rep",
+                method="individual_live",
+                captured_at=utcnow(),
+                distance=0.2,
+                liveness_score=0.95,
+            )
+        )
+        db.commit()
+
+    module = _load_script()
+    rc = module.main(["--days", "7"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "Grace Hopper" in captured.out
+
+
 def test_email_report_apply_requires_recipient(monkeypatch):
     module = _load_script()
     monkeypatch.setattr("app.config.REPORT_EMAIL_TO", "")
