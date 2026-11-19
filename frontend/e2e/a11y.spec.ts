@@ -44,7 +44,7 @@ async function waitForAnimations(page: Page) {
 for (const path of PUBLIC_PAGES) {
   test(`no critical or serious axe violations on ${path}`, async ({ page }) => {
     await page.goto(path);
-    await expect(page.locator('text=Loading...')).not.toBeVisible({ timeout: 40000 });
+    await expect(page.locator('text=Loading...')).toHaveCount(0, { timeout: 40000 });
     await waitForAnimations(page);
 
     const results = await new AxeBuilder({ page })

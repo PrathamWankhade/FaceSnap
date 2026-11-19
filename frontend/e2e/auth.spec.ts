@@ -16,8 +16,10 @@ import { test, expect, type Page } from '@playwright/test';
 
 test.describe('FaceSnap frontend', () => {
   // Wait until Firebase auth has resolved (loading spinner gone).
+  // toHaveCount(0) tolerates a brief moment where the route fallback and the
+  // auth spinner coexist; a strict-mode visibility check would fail on that.
   async function waitForAppReady(page: Page) {
-    await expect(page.locator('text=Loading...')).not.toBeVisible({ timeout: 40000 });
+    await expect(page.locator('text=Loading...')).toHaveCount(0, { timeout: 40000 });
   }
 
   test('app shell loads and shows the public navigation', async ({ page }) => {

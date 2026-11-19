@@ -98,7 +98,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
+          file: ./backend/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.name }}:latest,${{ steps.image.outputs.name }}:${{ github.sha }}
           cache-from: type=gha
