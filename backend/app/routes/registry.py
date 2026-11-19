@@ -25,6 +25,7 @@ from app.db import (
     Camera,
     ClassSession,
     Course,
+    DetectionReview,
     LeaveRequest,
     Student,
     User,
@@ -1090,8 +1091,31 @@ def retag_model_version(user: User = Depends(require_roles("admin")), db: Sessio
     return {"currentModelVersion": MODEL_VERSION, "updated": updated, "total": len(students)}
 
 
-# ---------------------------------------------------------------------------
-# Audit chain verification
+@router.get("/api/detections/review/{review_id}/history")
+def review_history(review_id: int, user: User = Depends(require_roles(*STAFF_ROLES)), db: Session = Depends(get_db)):
+    """Audit trail for a single review item (status transitions, assignment, resolution)."""
+    item = db.get(DetectionReview, review_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Review item not found.")
+    rows = db.scalars(
+        select(AuditLog)
+        .where(AuditLog.entity == "detection_review", AuditLog.entity_id == str(review_id))
+        .order_by(AuditLog.id.asc())
+    ).all()
+    return {
+        "reviewId": review_id,
+        "events": [
+            {
+                "id": row.id,
+                "action": row.action,
+                "actorId": row.actor_id,
+                "createdAt": _iso(row.created_at),
+                "prevHash": row.prev_hash,
+                "rowHash": row.row_hash,
+            }
+            for row in rows
+        ],
+    }
 # ---------------------------------------------------------------------------
 @router.get("/api/audit/verify")
 def verify_audit_chain(user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):

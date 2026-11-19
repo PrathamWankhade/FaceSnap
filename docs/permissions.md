@@ -62,10 +62,12 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | POST | `/api/detections/review/{id}/assign` | Staff | assign review item to an operator | audited |
 | POST | `/api/detections/review/bulk-resolve` | Staff | bulk resolve review items | audited |
 | POST | `/api/detections/review/bulk-dismiss` | Staff | bulk dismiss review items | audited |
+| GET | `/api/detections/review/{id}/history` | Staff | audit trail for one review item (status transitions, assignment) | `404` if missing |
 | GET | `/api/reports/attendance` | Staff | CSV attendance export | filters: `student_uid`, `method`, `session_id`, `department`, `from`, `to`; audited |
 | GET | `/api/pi/health` | Staff/Key | camera/engine state | |
 | GET | `/api/pi/stream` | Staff/Key | MJPEG | browsers cannot attach a bearer header to `<img>`; use a proxy or the capture/detect endpoints |
 | GET | `/api/pi/capture` | Staff/Key | still frame | |
+| GET | `/api/pi/detect` | Staff/Key | faces + `match` or `null` | unknown faces return `null`, never a guess |
 | GET | `/scim/v2/Users` | Staff/Key (SCIM token) | user provisioning | `filter`, `startIndex`, `count`; 409 on duplicate |
 | GET | `/scim/v2/Users/{id}` | Staff/Key (SCIM token) | user provisioning | `404` if missing |
 | POST | `/scim/v2/Users` | Staff/Key (SCIM token) | user provisioning | creates a DB user (role defaults to student); audited via row creation |

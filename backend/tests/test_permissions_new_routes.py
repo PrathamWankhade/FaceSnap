@@ -58,6 +58,7 @@ STAFF_ONLY = [
     ("GET", "/api/audit/verify"),
     ("GET", "/api/reports/attendance"),
     ("GET", "/api/detections/review"),
+    ("GET", "/api/detections/review/1/history"),
     ("POST", "/api/detections/review/bulk-resolve"),
     ("POST", "/api/detections/review/bulk-dismiss"),
     ("GET", "/api/cameras"),

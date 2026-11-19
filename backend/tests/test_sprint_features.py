@@ -193,6 +193,18 @@ def test_review_queue_list_and_resolve(client):
         assert res.status_code == 200
         assert res.json()["status"] == "resolved"
         assert res.json()["note"] == "ok"
+
+        # Per-item audit trail: resolve wrote a detection_review audit row.
+        res = client.get(f"/api/detections/review/{item_id}/history")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["reviewId"] == item_id
+        assert any(e["action"] == "detection.review.resolve" for e in body["events"])
+        assert all("rowHash" in e and "createdAt" in e for e in body["events"])
+
+        # Unknown item -> 404, not an empty list (a missing id is an error).
+        res = client.get("/api/detections/review/999999999/history")
+        assert res.status_code == 404
     finally:
         _clear()
 
