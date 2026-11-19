@@ -36,6 +36,7 @@ from app.db import (
 from app.services import image_store
 from app.services.face_service import face_service
 from app.services.vector_service import vector_service
+from app.services.camera_worker import camera_worker_manager, enqueue_ptz
 
 router = APIRouter()
 
@@ -421,19 +422,32 @@ def my_student(user: User = Depends(get_current_user_row), db: Session = Depends
 
 
 @router.get("/api/students/me/face")
-def my_face(user: User = Depends(get_current_user_row), db: Session = Depends(get_db)):
+def my_face(
+    anonymize: bool = Query(default=False),
+    user: User = Depends(get_current_user_row),
+    db: Session = Depends(get_db),
+):
     """Return the caller's own enrollment photo as a data URL.
 
-    Biometric originals stay server-side (and out of the browser cache) except
-    for this explicit owner-only fetch, which the verification screen needs for
-    the ArcFace comparison.
+    With ``anonymize=true`` (or when ``ANONYMIZE_EXPORTS`` is on) the face
+    region is blurred before encoding, so the photo can be shared without
+    exposing the biometric. The stored original is never modified.
     """
     import base64
+
+    from app.config import ANONYMIZE_EXPORTS
+    from app.services.anonymizer import blur_regions
 
     student = _require_student(db, user.id)
     data = image_store.load(student.face_image_key)
     if data is None:
         raise HTTPException(status_code=404, detail="No enrollment photo on file.")
+
+    if anonymize or ANONYMIZE_EXPORTS:
+        boxes = face_service.detect_face_boxes(data)
+        if boxes:
+            data = blur_regions(data, boxes)
+
     return {"image_base64": "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")}
 
 
@@ -1002,6 +1016,81 @@ def delete_camera(
     db.delete(cam)
     db.commit()
     return {"deleted": True, "id": camera_id}
+@router.get("/api/cameras/{camera_id}/health")
+def camera_health(camera_id: int, user: User = Depends(require_roles(*STAFF_ROLES)), db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if cam is None:
+        raise HTTPException(status_code=404, detail="Camera not found.")
+    from app.services.camera_worker import camera_worker_manager
+
+    camera_worker_manager.register(camera_id)
+    health = camera_worker_manager.health(camera_id)
+    return {
+        "cameraId": camera_id,
+        "status": health.status if health else "offline",
+        "lastFrameAt": health.last_frame_at if health else None,
+        "failures": health.failures if health else 0,
+        "reconnects": health.reconnects if health else 0,
+        "nextRetryAt": health.next_retry_at if health else None,
+        "lastError": health.last_error if health else None,
+    }
+
+
+class CameraPtzRequest(BaseModel):
+    action: str = Field(pattern="^(pan|tilt|zoom|preset)$")
+    direction: str | None = Field(default=None, max_length=20)
+    speed: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+@router.post("/api/cameras/{camera_id}/ptz")
+def camera_ptz(
+    camera_id: int,
+    payload: CameraPtzRequest,
+    user: User = Depends(require_roles(*STAFF_ROLES)),
+    db: Session = Depends(get_db),
+):
+    cam = db.get(Camera, camera_id)
+    if cam is None:
+        raise HTTPException(status_code=404, detail="Camera not found.")
+    from app.services.camera_worker import enqueue_ptz
+
+    result = enqueue_ptz(camera_id, {"action": payload.action, "direction": payload.direction, "speed": payload.speed, "by": user.id})
+    _audit(db, user, "camera.ptz", "camera", camera_id)
+    db.commit()
+    return {"cameraId": camera_id, **result, "note": "Command queued. Actual device control requires an ONVIF/PTZ driver."}
+
+
+@router.get("/api/cameras/{camera_id}/ptz/queue")
+def camera_ptz_queue(camera_id: int, user: User = Depends(require_roles(*STAFF_ROLES)), db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if cam is None:
+        raise HTTPException(status_code=404, detail="Camera not found.")
+    from app.services.camera_worker import ptz_queue
+
+    return {"cameraId": camera_id, "commands": ptz_queue(camera_id)}
+
+
+@router.post("/api/admin/model-version/retag")
+def retag_model_version(user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    """Mark every student as enrolled under the current model version.
+
+    Use after a model swap + re-enrollment campaign so ``model-info`` stops
+    reporting stale rows. This does not change any embedding; it only updates
+    the recorded version.
+    """
+    from app.config import MODEL_VERSION
+
+    students = db.scalars(select(Student)).all()
+    updated = 0
+    for student in students:
+        if student.model_version != MODEL_VERSION:
+            student.model_version = MODEL_VERSION
+            updated += 1
+    _audit(db, user, "model_version.retag", "student", None)
+    db.commit()
+    return {"currentModelVersion": MODEL_VERSION, "updated": updated, "total": len(students)}
+
+
 # ---------------------------------------------------------------------------
 # Audit chain verification
 # ---------------------------------------------------------------------------

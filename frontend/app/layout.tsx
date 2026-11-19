@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MotionConfig } from 'motion/react';
+import { LocaleProvider } from '@/lib/i18n';
 import ChatbotWrapper from '@/components/ChatbotWrapper';
 import { Toaster } from 'sonner';
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ErrorBoundary>
           <ThemeProvider>
           <AuthProvider>
+            <LocaleProvider>
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:bg-indigo-600 focus:px-5 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg"
@@ -50,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ChatbotWrapper />
               <Toaster position="top-center" richColors theme="system" />
             </MotionConfig>
+            </LocaleProvider>
           </AuthProvider>
           </ThemeProvider>
         </ErrorBoundary>

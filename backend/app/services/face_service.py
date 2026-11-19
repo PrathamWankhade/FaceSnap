@@ -260,6 +260,26 @@ class FaceService:
         result["ok"] = not result["reasons"]
         return result
 
+    def detect_face_boxes(self, image_bytes) -> list[tuple[int, int, int, int]]:
+        """Return (x, y, w, h) boxes for every face detected. Empty if no model."""
+        if self.app is None or not image_bytes:
+            return []
+        rgb_img = self._prepare_rgb(image_bytes)
+        if rgb_img is None:
+            return []
+        try:
+            faces = self.app.get(rgb_img)
+        except Exception:
+            return []
+        boxes: list[tuple[int, int, int, int]] = []
+        height, width = rgb_img.shape[:2]
+        for face in faces:
+            x1, y1, x2, y2 = (int(round(float(v))) for v in face.bbox[:4])
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(width, x2), min(height, y2)
+            boxes.append((x1, y1, max(0, x2 - x1), max(0, y2 - y1)))
+        return boxes
+
     def get_face_encoding(self, image_bytes):
         if self.app is None:
             return None

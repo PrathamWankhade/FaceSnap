@@ -40,8 +40,10 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/analytics/overview` | Staff | institution-wide | `403` for students |
 | GET | `/api/analytics/trends` | Staff | institution-wide | `group` = `day`, `week` or `month`; `days`; optional `department`; `403` for students |
 | GET | `/api/cameras` | Staff | camera registry | includes `streamUrl`, which may embed RTSP credentials — never exposed to students |
-| POST | `/api/cameras` | Staff | camera registry | audited |
-| DELETE | `/api/cameras/{camera_id}` | Staff | camera registry | audited; `404` if missing |
+| GET | `/api/cameras/{id}/health` | Staff | camera worker health + reconnect state | |
+| POST | `/api/cameras/{id}/ptz` | Staff | queue a PTZ command | actual device control needs an ONVIF driver |
+| GET | `/api/cameras/{id}/ptz/queue` | Staff | queued PTZ commands | |
+| POST | `/api/admin/model-version/retag` | Admin | re-tag all students to current model version | audited |
 | POST | `/api/sessions` | Staff | creates; `teacher_id` = caller | audited |
 | GET | `/api/sessions` | User | institution-wide (no PII beyond room/title) | students need this to pick a session |
 | POST | `/api/leave` | User | own student row only | `session_id` must exist |

@@ -20,6 +20,7 @@ from app.metrics import metrics
 from app.routes.detection import router as detection_router
 from app.routes.pi_routes import router as pi_router
 from app.routes.registry import router as registry_router
+from app.routes.scim import router as scim_router
 from app.routes.verification import router as verification_router
 from app.services.camera import pi_camera
 from app.services.face_service import face_service
@@ -47,6 +48,7 @@ app.include_router(verification_router)
 app.include_router(detection_router)
 app.include_router(pi_router)
 app.include_router(registry_router)
+app.include_router(scim_router)
 
 
 def _validate_runtime(
