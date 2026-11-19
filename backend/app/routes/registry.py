@@ -8,8 +8,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
-import csv
-import io
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -927,35 +925,13 @@ def attendance_report(
 
     rows = db.scalars(stmt).all()
 
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow([
-        "attendance_id", "student_uid", "student_name", "roll_number", "department",
-        "captured_at", "method", "session_id", "camera_id", "liveness_score",
-        "distance", "recorded_by",
-    ])
-    for record in rows:
-        student = record.student
-        writer.writerow([
-            record.id,
-            student.user_id,
-            student.name,
-            student.roll_number,
-            student.department,
-            _iso(record.captured_at),
-            record.method,
-            record.session_id,
-            record.camera_id,
-            record.liveness_score,
-            record.distance,
-            record.recorded_by,
-        ])
+    from app.services.reports import attendance_csv
 
     _audit(db, user, "report.attendance", "attendance", None)
     db.commit()
 
     return Response(
-        content=buffer.getvalue(),
+        content=attendance_csv(rows),
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="attendance_report.csv"'},
     )

@@ -64,6 +64,7 @@ MODEL_VERSION = os.getenv("MODEL_VERSION", "buffalo_s").strip()
 # Empty disables alerting entirely (the safe default for local development).
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
 ALERT_EMAIL_TO = os.getenv("ALERT_EMAIL_TO", "").strip()
+REPORT_EMAIL_TO = os.getenv("REPORT_EMAIL_TO", "").strip()
 SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "").strip()
