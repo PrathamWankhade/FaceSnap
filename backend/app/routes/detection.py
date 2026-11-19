@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_roles
@@ -196,6 +196,51 @@ def list_review_items(
         stmt = stmt.where(DetectionReview.status == status)
     rows = db.scalars(stmt).all()
     return {"items": [_review_dict(r) for r in rows], "total": len(rows)}
+
+
+@router.get("/api/detections/review/stats")
+def review_stats(
+    user: User = Depends(require_roles(*STAFF)),
+    db: Session = Depends(get_db),
+):
+    """Workload breakdown for the queue: status counts, per-reviewer and
+    per-assignee totals, and the age of the oldest pending item."""
+    by_status = {
+        status: count
+        for status, count in db.execute(
+            select(DetectionReview.status, func.count()).group_by(DetectionReview.status)
+        ).all()
+    }
+    by_reviewer = [
+        {"reviewerId": uid, "resolved": count}
+        for uid, count in db.execute(
+            select(DetectionReview.resolved_by, func.count())
+            .where(DetectionReview.resolved_by.is_not(None))
+            .group_by(DetectionReview.resolved_by)
+            .order_by(func.count().desc())
+        ).all()
+    ]
+    by_assignee = [
+        {"assigneeId": uid, "assigned": count}
+        for uid, count in db.execute(
+            select(DetectionReview.assigned_to, func.count())
+            .where(DetectionReview.assigned_to.is_not(None))
+            .group_by(DetectionReview.assigned_to)
+            .order_by(func.count().desc())
+        ).all()
+    ]
+    oldest = db.scalar(
+        select(func.min(DetectionReview.detected_at)).where(DetectionReview.status == "pending")
+    )
+    oldest_pending_hours = None
+    if oldest is not None:
+        oldest_pending_hours = round((utcnow() - oldest).total_seconds() / 3600.0, 1)
+    return {
+        "byStatus": by_status,
+        "byReviewer": by_reviewer,
+        "byAssignee": by_assignee,
+        "oldestPendingHours": oldest_pending_hours,
+    }
 
 
 @router.patch("/api/detections/review/{item_id}")

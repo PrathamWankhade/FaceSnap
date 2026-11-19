@@ -209,6 +209,49 @@ def test_review_queue_list_and_resolve(client):
         _clear()
 
 
+def test_review_stats_breakdown(client):
+    _as(client, "op-1", "op@example.com", "operator")
+    try:
+        from app.db import DetectionReview, SessionLocal, utcnow
+
+        with SessionLocal() as db:
+            db.add(DetectionReview(status="pending", nearest_uid="u1", nearest_distance=0.4))
+            db.add(
+                DetectionReview(
+                    status="resolved",
+                    nearest_uid="u2",
+                    nearest_distance=0.3,
+                    resolved_by="op-1",
+                    resolved_at=utcnow(),
+                )
+            )
+            db.add(
+                DetectionReview(
+                    status="resolved",
+                    nearest_uid="u3",
+                    nearest_distance=0.2,
+                    resolved_by="op-1",
+                    resolved_at=utcnow(),
+                    assigned_to="op-1",
+                    assigned_at=utcnow(),
+                )
+            )
+            db.commit()
+
+        res = client.get("/api/detections/review/stats")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["byStatus"].get("pending", 0) >= 1
+        assert body["byStatus"].get("resolved", 0) >= 2
+        reviewers = {r["reviewerId"]: r["resolved"] for r in body["byReviewer"]}
+        assert reviewers.get("op-1", 0) >= 2
+        assignees = {a["assigneeId"]: a["assigned"] for a in body["byAssignee"]}
+        assert assignees.get("op-1", 0) >= 1
+        assert body["oldestPendingHours"] is None or body["oldestPendingHours"] >= 0
+    finally:
+        _clear()
+
+
 # ---------------------------------------------------------------------------
 # Attendance CSV report
 # ---------------------------------------------------------------------------
