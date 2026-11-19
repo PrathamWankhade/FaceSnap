@@ -58,6 +58,7 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | POST | `/api/sync` | Staff | bulk import | legacy bulk path; prefer enroll/backfill |
 | POST | `/api/detect_webcam` | Staff | frame → detections + identities | rate-limited |
 | GET | `/api/detections/review` | Staff | unmatched detection queue | filters: `status`, `limit` |
+| GET | `/api/detections/review/stats` | Staff | workload breakdown: status counts, per-reviewer/assignee totals, oldest pending age | |
 | PATCH | `/api/detections/review/{id}` | Staff | resolve/dismiss review item | audited |
 | POST | `/api/detections/review/{id}/assign` | Staff | assign review item to an operator | audited |
 | POST | `/api/detections/review/bulk-resolve` | Staff | bulk resolve review items | audited |
@@ -66,7 +67,7 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/reports/attendance` | Staff | CSV attendance export | filters: `student_uid`, `method`, `session_id`, `department`, `from`, `to`; audited |
 | GET | `/api/pi/health` | Staff/Key | camera/engine state | |
 | GET | `/api/pi/stream` | Staff/Key | MJPEG | browsers cannot attach a bearer header to `<img>`; use a proxy or the capture/detect endpoints |
-| GET | `/api/pi/capture` | Staff/Key | still frame | |
+| GET | `/api/pi/capture` | Staff/Key | still frame | `anonymize=true` blurs detected faces before returning (also forced by `ANONYMIZE_EXPORTS`) |
 | GET | `/api/pi/detect` | Staff/Key | faces + `match` or `null` | unknown faces return `null`, never a guess |
 | GET | `/scim/v2/Users` | Staff/Key (SCIM token) | user provisioning | `filter`, `startIndex`, `count`; 409 on duplicate |
 | GET | `/scim/v2/Users/{id}` | Staff/Key (SCIM token) | user provisioning | `404` if missing |

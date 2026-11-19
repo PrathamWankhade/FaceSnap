@@ -44,7 +44,10 @@ CI install exactly the same set.
 | `tests/test_enrollment_quality.py` | enrollment gate: single-face requirement, size, blur, detection confidence, pose, embedding validity |
 | `tests/test_retention.py` | retention dry-run vs. apply, cut-off bounds, audit row, zero/negative-window guard, inactive-student (biometric) purge dry-run + guard |
 | `tests/test_backup_restore.py` | SQLite online backup is a consistent copy; restore replaces the target; missing source errors |
-| `tests/test_sprint_features.py` | alerting (webhook + email/SMTP, cooldown, thresholds), review queue list/resolve + per-item history, drift histogram, model version, CSV report |
+| `tests/test_sprint_features.py` | alerting (webhook + cooldown, thresholds), review queue list/resolve, per-item history, workload stats, drift histogram, model version, CSV report |
+| `tests/test_notifier_email.py` | SMTP email channel: missing config refuses, fake-SMTP send, notify falls back to email when only SMTP configured, no-channel no-op |
+| `tests/test_report_email.py` | shared attendance CSV builder, email report dry-run/apply/recipient guard/attachment |
+| `tests/test_pi_capture.py` | camera frame capture, `anonymize=true` blurs detected faces, no-face frames pass through unchanged |
 | `tests/test_permissions_new_routes.py` | 403 for students on staff-only routes added after the initial matrix (model-info, audit, reports, review, cameras, trends, SCIM-adjacent) |
 | `tests/test_events.py` | webhook event bus: noop, allowlist, fan-out, retry |
 | `tests/test_cameras_trends.py` | staff-only camera registry CRUD, trends endpoint, week-bucketing |

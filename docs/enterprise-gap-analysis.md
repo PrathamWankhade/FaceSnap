@@ -102,7 +102,7 @@ These are correctness properties, not marketing:
 | Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; an opt-in automated purge of *inactive* students exists (`scripts/purge_retention.py --students --student-days N`, dry-run default, audited per deletion) but is disabled until an institutional policy sets the window (documented in `docs/consent.md`). |
 | Data export (access/portability) | ✅ | `GET /api/students/{id}/export` (owner or staff, audited) returns profile, consent, attendance and a biometric note; tested. |
 | Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version, and `ConsentGate` blocks the student scan until the current notice is accepted (`POST /api/consent/accept`, audited); migration included. |
-| Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` can blur face regions; wired into `/api/students/me/face?anonymize=true` and the `ANONYMIZE_EXPORTS` flag. On-device inference does not exist. |
+| Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` blurs face regions; wired into `/api/students/me/face?anonymize=true`, `/api/pi/capture?anonymize=true`, and the `ANONYMIZE_EXPORTS` flag. On-device inference does not exist. |
 | SOC 2 / ISO 27001 / ISO 27701 alignment | ✕ | No certification or audit. Do not imply one. |
 | BIPA/CCPA-specific handling | ◐ | Consent, deletion and export are implemented; state-specific notice/retention rules need counsel. |
 | Immutable audit / chain of custody | ◐ | `audit_log` rows are append-only by convention, but a DB admin can mutate them. True immutability needs an append-only sink/hash chain. |
@@ -114,8 +114,8 @@ These are correctness properties, not marketing:
 | Mobile native apps | ✕ | Responsive web only; a native app adds distribution and camera-permission work without changing the protocol. |
 | Visitor management / watchlists | ✕ | Explicitly surveillance-adjacent; out of scope. |
 | Shift/overtime/payroll (T&A beyond marking) | ✕ | Different product (workforce management). |
-| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` and `/api/analytics/trends` feed a staff-only `/analytics` page (overview cards, method breakdown, 30-day daily trend). CSV export via `/api/reports/attendance`. Scheduled/BI layer still TODO. |
-| Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category, plus a per-item audit trail (`GET /api/detections/review/{id}/history`) covering status transitions and assignment. Per-reviewer workload views still TODO. |
+| Executive dashboards / scheduled reports | ◐ | `/api/analytics/overview` and `/api/analytics/trends` feed a staff-only `/analytics` page (overview cards, method breakdown, 30-day daily trend). CSV export via `/api/reports/attendance`, and a scheduled CSV email report (`scripts/email_report.py`, dry-run default, `REPORT_EMAIL_TO` + SMTP) for cron. A BI layer still needs a BI tool. |
+| Case management for unmatched faces | ◐ | Review queue (`/api/detections/review`) with list/resolve/assign/bulk-resolve/bulk-dismiss, priority and category, plus a per-item audit trail (`GET /api/detections/review/{id}/history`) and a workload breakdown (`GET /api/detections/review/stats`: status counts, per-reviewer/assignee totals, oldest pending age). |
 | WCAG certification / i18n | ◐ | No certification. Automated axe gate on public pages (critical/serious). Lightweight i18n scaffolding with `en` and `hi` locales and a nav toggle; full translation coverage is still open. |
 | Offline-first | ✕ | Fails closed on connectivity loss; offline conflict resolution is a large design surface. |
 | Mask/temperature screening | ✕ | Pandemic-era feature, no sensor, no consent basis. |

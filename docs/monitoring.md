@@ -86,6 +86,18 @@ disabled by default:
 Health-degradation and error-rate alerts fire on both configured channels.
 SMS/pager delivery is not implemented — it needs a provider contract.
 
+### Scheduled attendance report
+
+`scripts/email_report.py` emails the attendance CSV (same columns as
+`GET /api/reports/attendance`, shared builder in `app/services/reports.py`) as
+an attachment. Dry-run by default; sending needs `REPORT_EMAIL_TO` plus the
+`SMTP_*` settings above:
+
+```bash
+python scripts/email_report.py --days 7            # print CSV to stdout
+python scripts/email_report.py --days 1 --apply    # email it (cron)
+```
+
 ## Error tracking
 
 Unhandled exceptions are logged with stack traces and `request_id`. External error tracking
