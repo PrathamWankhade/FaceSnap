@@ -48,6 +48,8 @@ CI install exactly the same set.
 | `tests/test_notifier_email.py` | SMTP email channel: missing config refuses, fake-SMTP send, notify falls back to email when only SMTP configured, no-channel no-op |
 | `tests/test_report_email.py` | shared attendance CSV builder, email report dry-run/apply/recipient guard/attachment |
 | `tests/test_pi_capture.py` | camera frame capture, `anonymize=true` blurs detected faces, no-face frames pass through unchanged |
+| `tests/test_biometric_crypto.py` | key validation, AES-256-GCM roundtrip/randomization/tamper/wrong-key fail-closed, legacy-plaintext passthrough, image-store integration, legacy-photo migration script |
+| `tests/test_consent_withdrawal.py` | withdrawal recording + idempotence + audit, gates on enroll/verify/attendance, re-accept lifts withdrawal, per-store deletion evidence incl. vector-failure reporting and cross-user 403 |
 | `tests/test_permissions_new_routes.py` | 403 for students on staff-only routes added after the initial matrix (model-info, audit, reports, review, cameras, trends, SCIM-adjacent) |
 | `tests/test_events.py` | webhook event bus: noop, allowlist, fan-out, retry |
 | `tests/test_cameras_trends.py` | staff-only camera registry CRUD, trends endpoint, week-bucketing |

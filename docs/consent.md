@@ -21,7 +21,10 @@ parties.
 
 ## Where it lives
 
-- Photo: `FACE_IMAGE_DIR` on the server, outside the relational database.
+- Photo: `FACE_IMAGE_DIR` on the server, outside the relational database. When
+  `BIOMETRIC_ENCRYPTION_KEY` is configured, photos are stored AES-256-GCM
+  encrypted (see `docs/SECURITY.md`); legacy plaintext files can be migrated
+  with `backend/scripts/encrypt_photos.py --apply` (dry run by default).
 - Embedding: the Qdrant vector index (derived; rebuildable from the photo).
 - Attendance and consent record: the SQL database (system of record).
 
@@ -33,10 +36,17 @@ parties.
 
 ## Retention and withdrawal
 
+- **Withdrawal**: `POST /api/consent/withdraw` (the student, for their own account) stops future
+  biometric processing: enrollment, `/api/verify_liveness` and `/api/attendance` are refused with
+  `409` from that point. The profile, the consent record and the attendance history are **kept** —
+  deletion is a separate, deliberate action. Re-accepting the current notice
+  (`POST /api/consent/accept`) lifts the withdrawal. Both actions are audited.
 - Attendance retention is opt-in: an operator runs `backend/scripts/purge_retention.py --days N`
   (dry run by default; applies with `--apply`) and the purge is audited.
 - The student can delete their profile at any time (`DELETE /api/students/{id}`): this removes the
-  photo, embedding and attendance history. Re-enrollment is possible afterwards.
+  photo, embedding and attendance history, and the response carries per-store deletion evidence
+  (photo / embedding / attendance rows / student row, with a `verified` flag). Re-enrollment is
+  possible afterwards.
 - The consent version and timestamp are stored with the student row; after a notice update, rows
   with an older version can be queried for re-consent. The student scan shows a blocking
   `ConsentGate` modal for those rows and unlocks attendance only after `POST /api/consent/accept`

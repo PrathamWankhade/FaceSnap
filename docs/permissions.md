@@ -25,7 +25,8 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/health` | — | component readiness | never touches the model (NFR-O1) |
 | GET | `/api/health/live` | — | process liveness | for uptime probes |
 | GET | `/api/consent` | — | consent notice | version + summary the register page must acknowledge |
-| POST | `/api/consent/accept` | User | self | records re-consent to current version; audited |
+| POST | `/api/consent/accept` | User | self | records re-consent to current version; clears a prior withdrawal; audited |
+| POST | `/api/consent/withdraw` | User | self | stops biometric processing (enroll/verify/attendance) for this student; profile and history kept; audited |
 | GET | `/api/me` | User | caller | role + own student profile |
 | PATCH | `/api/users/{uid}/role` | Admin | target user | audited; admin cannot demote themselves (see below) |
 | POST | `/api/students/enroll` | User | self; **Staff** may specify another `user_uid` | exactly one face, quality gate + duplicate check; current `consent_version` required; audited |
@@ -52,7 +53,7 @@ Legend — **Auth**: `—` public · `User` any authenticated identity · `Staff
 | GET | `/api/admin/model-info` | Admin | model version + re-enrollment counts | |
 | GET | `/api/admin/consent-report` | Admin | consent version distribution + stale list | for re-consent campaigns |
 | POST | `/api/verify` | Staff | arbitrary two images | deliberately **not** student-callable: it would be a general face-comparison oracle |
-| POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited |
+| POST | `/api/verify_liveness` | User | caller's own enrollment template | frames + measured `frame_interval_ms`; rate-limited; `409` if consent withdrawn |
 | GET | `/api/liveness/challenge` | User | self | one-shot challenge (`blink`/`turn_left`/`turn_right`) + token, TTL 30 s; pending tokens capped per process |
 | POST | `/api/liveness/verify_challenge` | User | self | token + frames; single-use, TTL-enforced; rate-limited; liveness only, never a match decision |
 | POST | `/api/sync` | Staff | bulk import | legacy bulk path; prefer enroll/backfill |

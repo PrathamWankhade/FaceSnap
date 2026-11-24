@@ -39,7 +39,7 @@ These are correctness properties, not marketing:
 | Active liveness (turn head / blink on command) | ◐ | Challenge-response protocol (`issue_challenge`/`verify_challenge`, `/api/liveness/challenge`, `/api/liveness/verify_challenge`) with single-use tokens, a 30 s TTL and a per-process cap. Wired into the student scan as an opt-in toggle; a failed challenge records no attendance. Passive remains the default and the thresholds are untuned against a spoof corpus. |
 | Enrollment quality assessment (blur, pose, size, lighting) | ✅ | `face_service.assess_enrollment()` rejects blurry, tiny, dark, low-confidence, turned/tilted photos with machine-readable reasons; the register page turns the structured 422 into an actionable checklist plus the measured metrics. Tested in `tests/test_enrollment_quality.py`. |
 | De-duplication / one face per identity | ✅ | Cosine distance ≤ `DUPLICATE_FACE_DISTANCE` (0.30) against the vector index blocks a second identity; audited. Requires Qdrant — the response exposes `duplicate_checked` rather than pretending. |
-| Encryption at rest for photos/vectors | ◐ | The app does not encrypt files itself; reliance is on disk/volume encryption (KMS/HSM) at the host. Documented as a deployment responsibility, not a built-in claim. |
+| Encryption at rest for photos/vectors | ◐ | Enrollment photos get opt-in AES-256-GCM application encryption (`BIOMETRIC_ENCRYPTION_KEY`, per-file nonce, fail-closed on wrong/tampered key; `scripts/encrypt_photos.py` migrates legacy files). Embeddings in Qdrant stay plaintext (cosine search needs it) and volume encryption remains the deployment baseline; no managed key rotation yet. |
 
 ### 2. Recognition accuracy & robustness
 
@@ -102,6 +102,8 @@ These are correctness properties, not marketing:
 | Biometric retention / auto-expiry | ◐ | The **student** can delete photo + embedding + history; an opt-in automated purge of *inactive* students exists (`scripts/purge_retention.py --students --student-days N`, dry-run default, audited per deletion) but is disabled until an institutional policy sets the window (documented in `docs/consent.md`). |
 | Data export (access/portability) | ✅ | `GET /api/students/{id}/export` (owner or staff, audited) returns profile, consent, attendance and a biometric note; tested. |
 | Consent versioning / re-consent | ✅ | `consent_version` + `consent_at` columns, public `/api/consent`, enrollment rejects a stale version, and `ConsentGate` blocks the student scan until the current notice is accepted (`POST /api/consent/accept`, audited); migration included. |
+| Consent withdrawal | ✅ | `POST /api/consent/withdraw` (self) refuses enrollment, `/api/verify_liveness` and `/api/attendance` with `409` while keeping the profile and attendance history; `POST /api/consent/accept` lifts it. Both audited. |
+| Deletion verification (all stores) | ✅ | `DELETE /api/students/{id}` returns per-store evidence (`photo`/`embedding`/`attendanceRows`/`studentRow` plus a `verified` flag); a failed vector delete is reported rather than hidden. |
 | Privacy-preserving options (on-device, blurring non-enrolled faces) | ◐ | `app/services/anonymizer.py` blurs face regions; wired into `/api/students/me/face?anonymize=true`, `/api/pi/capture?anonymize=true`, and the `ANONYMIZE_EXPORTS` flag. On-device inference does not exist. |
 | SOC 2 / ISO 27001 / ISO 27701 alignment | ✕ | No certification or audit. Do not imply one. |
 | BIPA/CCPA-specific handling | ◐ | Consent, deletion and export are implemented; state-specific notice/retention rules need counsel. |
