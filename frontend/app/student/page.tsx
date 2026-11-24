@@ -13,6 +13,7 @@ import { getBackendUrl } from '@/lib/utils';
 import { authHeaders, markAttendance } from '@/lib/attendance';
 import ConsentGate from '@/components/ConsentGate';
 import { challengeCopy, type LivenessChallengeIssue, type LivenessChallengeResult } from '@/lib/liveness';
+import ConsentControls from '@/components/ConsentControls';
 
 const LIVENESS_FRAMES = 50;
 const FRAME_INTERVAL_MS = 100;
@@ -330,6 +331,9 @@ export default function StudentPage() {
   }
 
   const isBusy = isCapturingFrames || isVerifying;
+  // Withdrawal blocks verification exactly like a stale consent version does.
+  const consentWithdrawn = Boolean(studentData?.consentWithdrawnAt);
+  const verificationBlocked = consentStale || consentWithdrawn;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
@@ -341,6 +345,16 @@ export default function StudentPage() {
         }
       />
       <div className="max-w-4xl mx-auto">
+        <ConsentControls
+          withdrawnAt={studentData?.consentWithdrawnAt ?? null}
+          onChanged={(withdrawn) =>
+            setStudentData((previous) =>
+              previous
+                ? { ...previous, consentWithdrawnAt: withdrawn ? new Date().toISOString() : null }
+                : previous,
+            )
+          }
+        />
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -611,10 +625,10 @@ export default function StudentPage() {
                   </button>
                   <button
                     onClick={captureAndVerify}
-                    disabled={isBusy || consentStale}
-                    title={consentStale ? 'Accept the updated consent notice first' : undefined}
+                    disabled={isBusy || verificationBlocked}
+                    title={verificationBlocked ? 'Consent is required before verifying' : undefined}
                     className={`px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 shadow-md transition-all hover:-translate-y-0.5 ${
-                      isBusy || consentStale
+                      isBusy || verificationBlocked
                         ? 'bg-indigo-400 text-white cursor-not-allowed'
                         : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-indigo-500/20 hover:shadow-indigo-500/30'
                     }`}

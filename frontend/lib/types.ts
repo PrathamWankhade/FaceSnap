@@ -11,6 +11,7 @@ export interface StudentData {
   registeredAt: string;
   /** Consent notice version recorded at enrollment (null for pre-versioning rows). */
   consentVersion?: string | null;
+  consentWithdrawnAt?: string | null;
   /** Recognition model that produced the stored embedding. */
   modelVersion?: string | null;
 }
