@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, require_roles
+from app.auth import get_current_user, get_db, require_roles
+from app.db import Student
 from app.models.schemas import LivenessVerifyRequest, VerifyRequest, VerifyResponse
 from app.rate_limit import rate_limit_face
 from app.services.face_service import MAX_IMAGE_BYTES, face_service
@@ -65,8 +68,24 @@ def verify_student(
 def verify_student_with_liveness(
     request: LivenessVerifyRequest,
     user=Depends(get_current_user),
+    db: Session = Depends(get_db),
     _rate=Depends(rate_limit_face),
 ):
+    # A withdrawn student must not have their biometrics processed on their
+    # behalf — fail closed before any inference runs.
+    uid = user.get("uid") if isinstance(user, dict) else None
+    if uid:
+        student = db.scalar(select(Student).where(Student.user_id == uid))
+        if student is not None and student.consent_withdrawn_at is not None:
+            from app.routes.registry import _iso
+
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "This student has withdrawn biometric consent; verification is refused.",
+                    "withdrawnAt": _iso(student.consent_withdrawn_at),
+                },
+            )
     try:
         registered_bytes = face_service._decode_base64(request.registered_image_base64)
     except Exception:

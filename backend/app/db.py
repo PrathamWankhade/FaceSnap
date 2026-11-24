@@ -114,6 +114,10 @@ class Student(Base):
     # found for re-consent.
     consent_version: Mapped[str | None] = mapped_column(String(30))
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Withdrawal is not deletion: the profile stays, but biometric processing
+    # (enrollment, verification, attendance) is refused from this timestamp on.
+    # NULL means the student has not withdrawn.
+    consent_withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     # Which recognition model produced the enrolled embedding. Lets an institution

@@ -108,6 +108,7 @@ def student_dict(student: Student) -> dict:
         "registeredAt": _iso(student.enrolled_at),
         "hasFaceImage": bool(student.face_image_key),
         "consentVersion": student.consent_version,
+        "consentWithdrawnAt": _iso(student.consent_withdrawn_at),
         "modelVersion": student.model_version,
     }
 
@@ -208,8 +209,9 @@ CONSENT_SUMMARY = (
     "FaceSnap stores one enrollment photo and a derived face embedding to verify "
     "attendance. The photo is stored outside the relational database and the "
     "embedding can be rebuilt. Attendance records contain the method, timestamp, "
-    "match distance and liveness score. You can delete your profile, photo, "
-    "embedding and attendance history at any time from the student profile."
+    "match distance and liveness score. You can withdraw consent at any time "
+    "(this stops further biometric processing while keeping your history) and "
+    "delete your profile, photo, embedding and attendance history entirely."
 )
 if CONSENT_REGION == "illinois":
     CONSENT_SUMMARY += (
@@ -229,14 +231,62 @@ def accept_consent(
     db: Session = Depends(get_db),
 ):
     student = _require_student(db, user.id)
-    if student.consent_version == CONSENT_VERSION:
-        return {"consentVersion": student.consent_version, "acceptedAt": _iso(student.consent_at), "changed": False}
+    # Re-accepting the current notice also clears a prior withdrawal: the
+    # student is actively opting back in, not just acknowledging a version.
+    changed = (
+        student.consent_version != CONSENT_VERSION
+        or student.consent_withdrawn_at is not None
+    )
     student.consent_version = CONSENT_VERSION
     student.consent_at = utcnow()
+    student.consent_withdrawn_at = None
+    if not changed:
+        db.rollback()
+        return {
+            "consentVersion": student.consent_version,
+            "acceptedAt": _iso(student.consent_at),
+            "withdrawnAt": None,
+            "changed": False,
+        }
     _audit(db, user, "consent.accept", "student", student.id)
     db.commit()
     db.refresh(student)
-    return {"consentVersion": student.consent_version, "acceptedAt": _iso(student.consent_at), "changed": True}
+    return {
+        "consentVersion": student.consent_version,
+        "acceptedAt": _iso(student.consent_at),
+        "withdrawnAt": None,
+        "changed": True,
+    }
+
+
+@router.post("/api/consent/withdraw")
+def withdraw_consent(
+    user: User = Depends(get_current_user_row),
+    db: Session = Depends(get_db),
+):
+    """Withdraw consent for biometric processing (student, self only).
+
+    Withdrawal is not deletion: the profile, the consent record and the
+    attendance history stay for the institution's retention rules, but
+    enrollment and biometric attendance are refused from now on. Student
+    re-accepts the current notice to lift it.
+    """
+    student = _require_student(db, user.id)
+    if student.consent_withdrawn_at is not None:
+        return {
+            "withdrawn": True,
+            "withdrawnAt": _iso(student.consent_withdrawn_at),
+            "changed": False,
+        }
+    student.consent_withdrawn_at = utcnow()
+    _audit(db, user, "consent.withdraw", "student", student.id)
+    db.commit()
+    db.refresh(student)
+    return {
+        "withdrawn": True,
+        "withdrawnAt": _iso(student.consent_withdrawn_at),
+        "changed": True,
+    }
 
 
 @router.get("/api/consent")
@@ -250,7 +300,11 @@ def consent_notice():
         "version": CONSENT_VERSION,
         "summary": CONSENT_SUMMARY,
         "policy": "docs/consent.md",
-        "withdrawal": "Deleting the profile removes the photo, embedding and attendance history.",
+        "withdrawal": (
+            "POST /api/consent/withdraw stops future biometric processing while "
+            "keeping the profile and attendance history; deleting the profile "
+            "removes the photo, embedding and attendance history."
+        ),
     }
 
 
@@ -276,6 +330,19 @@ def enroll(
             detail={
                 "message": "Consent acknowledgement is required and must match the current notice.",
                 "required_consent_version": CONSENT_VERSION,
+            },
+        )
+
+    # A withdrawn student cannot be (re-)enrolled: withdrawal stops biometric
+    # processing, and enrollment is the most biometric thing we do. Lifting the
+    # withdrawal is the student's action (POST /api/consent/accept), not staff's.
+    existing_student = db.scalar(select(Student).where(Student.user_id == target_uid))
+    if existing_student is not None and existing_student.consent_withdrawn_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "This student has withdrawn biometric consent; enrollment is refused.",
+                "withdrawnAt": _iso(existing_student.consent_withdrawn_at),
             },
         )
 
@@ -504,19 +571,40 @@ def delete_student(
     if student.user_id != user.id and user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Not allowed to delete this profile.")
 
+    # Deletion is verified per store, not assumed: the response carries
+    # evidence so a student (or auditor) can see what actually happened.
+    photo_existed = image_store.exists(student.face_image_key)
     image_store.delete(student.face_image_key)
-    vector_service.delete(student.user_id)
+    vector_error: str | None = None
+    try:
+        vector_service.delete(student.user_id)
+    except Exception:  # noqa: BLE001 - evidence must survive a store failure
+        vector_error = "delete failed"
+    attendance_rows = db.scalar(
+        select(func.count(Attendance.id)).where(Attendance.student_id == student.id)
+    )
     uid = student.user_id
     _audit(db, user, "student.delete", "student", student_id)
     db.delete(student)
     db.commit()
+    photo_verified = not image_store.exists(student.face_image_key)
+    row_verified = db.get(Student, student_id) is None
+
+    evidence = {
+        "photo": "deleted" if photo_existed else "already_absent",
+        "photoVerified": photo_verified,
+        "embedding": vector_error or "deleted",
+        "attendanceRows": attendance_rows,
+        "studentRow": "deleted" if row_verified else "delete failed",
+        "verified": photo_verified and row_verified and vector_error is None,
+    }
     try:
         from app.services.events import emit
 
-        emit("student.deleted", {"uid": uid, "student_id": student_id})
+        emit("student.deleted", {"uid": uid, "student_id": student_id, "evidence": evidence})
     except Exception:
         pass
-    return {"deleted": True, "uid": uid}
+    return {"deleted": True, "uid": uid, "evidence": evidence}
 
 
 # ---------------------------------------------------------------------------
@@ -533,6 +621,16 @@ def mark_attendance(
         raise HTTPException(status_code=403, detail="Only staff can record attendance for others.")
 
     student = _require_student(db, target_uid)
+    if student.consent_withdrawn_at is not None:
+        # Fail closed: no biometric attendance for a withdrawn student, and
+        # never a silent skip that would look like a successful mark.
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "This student has withdrawn biometric consent; attendance is not recorded.",
+                "withdrawnAt": _iso(student.consent_withdrawn_at),
+            },
+        )
     captured_at = to_naive_utc(payload.captured_at) or utcnow()
 
     session = None
