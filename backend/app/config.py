@@ -161,6 +161,14 @@ DRIFT_MIN_SAMPLES = int(os.getenv("DRIFT_MIN_SAMPLES", "20"))
 ANONYMIZE_EXPORTS = _env_bool("ANONYMIZE_EXPORTS", default=False)
 # SCIM provisioning (optional). Empty = disabled.
 SCIM_TOKEN = os.getenv("SCIM_TOKEN", "").strip()
+# Application-level encryption for enrollment photos at rest. Empty = disabled
+# (transparent passthrough, legacy plaintext files stay readable). A malformed
+# key refuses to boot rather than silently storing unencryptable data.
+BIOMETRIC_ENCRYPTION_KEY = os.getenv("BIOMETRIC_ENCRYPTION_KEY", "").strip()
+if BIOMETRIC_ENCRYPTION_KEY:
+    from app.services.biometric_crypto import validate_key as _validate_key
+
+    _validate_key(BIOMETRIC_ENCRYPTION_KEY)  # fail fast at import
 # Region-specific consent notice: default, illinois (BIPA), california (CCPA).
 CONSENT_REGION = os.getenv("CONSENT_REGION", "default").strip().lower()
 
